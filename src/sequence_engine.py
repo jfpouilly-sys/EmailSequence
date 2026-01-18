@@ -9,6 +9,7 @@ from .config import Config
 from .contact_tracker import ContactTracker
 from .outlook_manager import OutlookManager
 from .template_engine import TemplateEngine
+from .campaign_id import CampaignIDGenerator
 
 
 class SequenceEngine:
@@ -17,7 +18,7 @@ class SequenceEngine:
     def __init__(self, config: Config):
         """
         Initialize with config.
-        Create instances of ContactTracker, OutlookManager, TemplateEngine.
+        Create instances of ContactTracker, OutlookManager, TemplateEngine, CampaignIDGenerator.
         Set up logging to config.log_file.
 
         Args:
@@ -29,6 +30,7 @@ class SequenceEngine:
         self.tracker = ContactTracker(config.contacts_file)
         self.outlook = OutlookManager()
         self.template_engine = TemplateEngine(config.templates_folder)
+        self.campaign_id_gen = CampaignIDGenerator(config.campaign_id_state_file)
 
         # Set up logging
         self._setup_logging()
@@ -86,6 +88,10 @@ class SequenceEngine:
 
         for _, contact in pending.iterrows():
             try:
+                # Generate campaign ID for this email (sequence 1 = initial)
+                campaign_id = self.campaign_id_gen.generate_email_id(sequence_number=1)
+                subject_with_id = f"{self.config.default_subject} [{campaign_id}]"
+
                 # Render email template
                 html_body = self.template_engine.render(
                     'initial',
@@ -93,12 +99,15 @@ class SequenceEngine:
                     self.config.sender_name
                 )
 
-                # Send email
+                # Send email with configured send mode
                 result = self.outlook.send_email(
                     to=contact['email'],
-                    subject=self.config.default_subject,
+                    subject=subject_with_id,
                     html_body=html_body,
-                    dry_run=self.config.dry_run
+                    dry_run=self.config.dry_run,
+                    send_mode=self.config.default_send_mode,
+                    defer_hours=self.config.default_defer_hours,
+                    msg_folder=self.config.msg_output_folder
                 )
 
                 if result['success']:
@@ -109,7 +118,8 @@ class SequenceEngine:
                         'initial_sent_date': result['sent_time'],
                         'last_contact_date': result['sent_time'],
                         'followup_count': 0,
-                        'conversation_id': result['conversation_id']
+                        'conversation_id': result['conversation_id'],
+                        'notes': f"Campaign ID: {campaign_id}"
                     }
 
                     self.tracker.update_contact(contact['email'], updates)
@@ -263,6 +273,11 @@ class SequenceEngine:
                 # Determine template name
                 template_name = f"followup_{next_followup}"
 
+                # Generate campaign ID (sequence: 2=followup_1, 3=followup_2, 4=followup_3, 5=followup_4)
+                sequence_number = next_followup + 1  # Convert to sequence number
+                campaign_id = self.campaign_id_gen.generate_email_id(sequence_number=sequence_number)
+                subject_with_id = f"{self.config.default_subject} [{campaign_id}]"
+
                 # Render email template
                 html_body = self.template_engine.render(
                     template_name,
@@ -270,12 +285,15 @@ class SequenceEngine:
                     self.config.sender_name
                 )
 
-                # Send email with SAME subject line to maintain thread
+                # Send email with SAME subject line (but with new campaign ID) to maintain thread
                 result = self.outlook.send_email(
                     to=contact['email'],
-                    subject=self.config.default_subject,
+                    subject=subject_with_id,
                     html_body=html_body,
-                    dry_run=self.config.dry_run
+                    dry_run=self.config.dry_run,
+                    send_mode=self.config.default_send_mode,
+                    defer_hours=self.config.default_defer_hours,
+                    msg_folder=self.config.msg_output_folder
                 )
 
                 if result['success']:
@@ -370,6 +388,7 @@ class SequenceEngine:
             'followup_1': 0,
             'followup_2': 0,
             'followup_3': 0,
+            'followup_4': 0,
             'replied': 0,
             'bounced': 0,
             'completed': 0,
@@ -387,6 +406,7 @@ class SequenceEngine:
             by_status['followup_1'] +
             by_status['followup_2'] +
             by_status['followup_3'] +
+            by_status['followup_4'] +
             by_status['replied'] +
             by_status['completed']
         )
@@ -445,3 +465,85 @@ class SequenceEngine:
         self.logger.info("Full cycle complete")
 
         return combined
+
+    def send_single_email(
+        self,
+        email: str,
+        template_name: str = 'initial',
+        send_mode: str = None,
+        defer_hours: int = None,
+        msg_folder: str = None
+    ) -> dict:
+        """
+        Send a single email to a specific contact with custom options.
+        Useful for GUI-based manual sends.
+
+        Args:
+            email: Contact email address
+            template_name: Template to use ('initial', 'followup_1', etc.)
+            send_mode: Override default send mode ('send', 'msg_file', 'defer')
+            defer_hours: Override default defer hours
+            msg_folder: Override default msg folder
+
+        Returns:
+            {
+                "success": bool,
+                "error": str | None,
+                "msg_file_path": str | None
+            }
+        """
+        # Get contact
+        contact = self.tracker.get_contact_by_email(email)
+        if not contact:
+            return {
+                "success": False,
+                "error": f"Contact not found: {email}",
+                "msg_file_path": None
+            }
+
+        # Use config defaults if not specified
+        if send_mode is None:
+            send_mode = self.config.default_send_mode
+        if defer_hours is None:
+            defer_hours = self.config.default_defer_hours
+        if msg_folder is None:
+            msg_folder = self.config.msg_output_folder
+
+        try:
+            # Render template
+            html_body = self.template_engine.render(
+                template_name,
+                contact,
+                self.config.sender_name
+            )
+
+            # Send email
+            result = self.outlook.send_email(
+                to=email,
+                subject=self.config.default_subject,
+                html_body=html_body,
+                dry_run=False,
+                send_mode=send_mode,
+                defer_hours=defer_hours,
+                msg_folder=msg_folder
+            )
+
+            if result['success']:
+                self.logger.info(
+                    f"Sent {template_name} to {email} (mode: {send_mode})"
+                )
+
+            return {
+                "success": result['success'],
+                "error": result.get('error'),
+                "msg_file_path": result.get('msg_file_path')
+            }
+
+        except Exception as e:
+            error_msg = f"Error sending to {email}: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "msg_file_path": None
+            }

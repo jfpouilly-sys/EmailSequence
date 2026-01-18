@@ -1,5 +1,6 @@
 """Email template loading and personalization."""
 import os
+import logging
 from typing import Optional
 
 
@@ -18,17 +19,26 @@ class TemplateEngine:
             FileNotFoundError: If templates folder doesn't exist
         """
         self.templates_folder = templates_folder
+        self.logger = logging.getLogger(__name__)
+
+        abs_path = os.path.abspath(templates_folder)
+        self.logger.info(f"[TEMPLATES] Initializing template engine with folder: {abs_path}")
 
         if not os.path.exists(templates_folder):
+            self.logger.error(f"[TEMPLATES] Folder not found: {abs_path}")
             raise FileNotFoundError(
                 f"Templates folder not found: {templates_folder}\n"
                 "Please create the templates folder and add template files."
             )
 
         if not os.path.isdir(templates_folder):
+            self.logger.error(f"[TEMPLATES] Path is not a directory: {abs_path}")
             raise ValueError(
                 f"{templates_folder} is not a directory"
             )
+
+        available = self.get_available_templates()
+        self.logger.info(f"[TEMPLATES] Found {len(available)} templates: {', '.join(available)}")
 
     def load_template(self, template_name: str) -> str:
         """
@@ -44,8 +54,10 @@ class TemplateEngine:
             FileNotFoundError: If template doesn't exist
         """
         template_path = os.path.join(self.templates_folder, f"{template_name}.html")
+        abs_path = os.path.abspath(template_path)
 
         if not os.path.exists(template_path):
+            self.logger.error(f"[FILE READ] Template not found: {abs_path}")
             available = self.get_available_templates()
             available_str = ', '.join(available) if available else 'none'
             raise FileNotFoundError(
@@ -53,8 +65,13 @@ class TemplateEngine:
                 f"Available templates: {available_str}"
             )
 
+        self.logger.info(f"[FILE READ] Loading template: {abs_path}")
         with open(template_path, 'r', encoding='utf-8') as f:
-            return f.read()
+            content = f.read()
+
+        file_size = os.path.getsize(template_path)
+        self.logger.info(f"[FILE READ] Loaded template {template_name}.html ({file_size} bytes, {len(content)} characters)")
+        return content
 
     def render(self, template_name: str, contact: dict, sender_name: Optional[str] = None) -> str:
         """
@@ -81,6 +98,9 @@ class TemplateEngine:
         Note:
             Missing placeholders remain as-is (don't crash).
         """
+        recipient_email = contact.get('email', 'unknown')
+        self.logger.info(f"[RENDER] Rendering template '{template_name}' for {recipient_email}")
+
         template = self.load_template(template_name)
 
         # Create substitution dictionary
@@ -108,6 +128,7 @@ class TemplateEngine:
             placeholder = f"{{{key}}}"
             rendered = rendered.replace(placeholder, value)
 
+        self.logger.debug(f"[RENDER] Replaced {len(subs)} placeholders in template '{template_name}'")
         return rendered
 
     def get_available_templates(self) -> list[str]:

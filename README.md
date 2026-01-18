@@ -4,12 +4,20 @@ A Python-based email sequence automation system for Windows 11 that sends person
 
 ## Features
 
-- **Automated Email Sequences**: Send initial emails and up to 3 follow-ups automatically
+- **Automated Email Sequences**: Send initial emails and up to 4 follow-ups automatically (5 total emails)
+- **Unique Email IDs**: Each email gets a unique tracking ID (Lxxxxxx-y format) appended to subject line
+- **Multi-Campaign Management**: Manage multiple campaigns with isolated folders, contacts, and templates
 - **Reply Tracking**: Scans Outlook inbox to detect replies and update contact status
 - **Excel-Based Contact Management**: Simple contact database using Excel
+- **Flexible Contact Status**: Add contacts with any status (pending, sent, followup_1-4, etc.)
+- **Multiple Email Sending Options**:
+  - Send emails immediately via Outlook
+  - Save emails as .msg files in a designated folder for manual review/sending
+  - Defer email sending by a specified number of hours using Outlook's deferred delivery
 - **Template System**: Customizable HTML email templates with personalization
 - **Dry Run Mode**: Test your sequences without actually sending emails
 - **Task Scheduler Integration**: Run automated cycles to check replies and send follow-ups
+- **Comprehensive Logging**: Detailed logs of all file operations, API calls, and email activities
 
 ## Requirements
 
@@ -37,6 +45,31 @@ A Python-based email sequence automation system for Windows 11 that sends person
    - `logs/` - Log file directory
    - `config.yaml` - Configuration file (already exists)
 
+## Outlook Setup
+
+The application connects to Microsoft Outlook using COM automation. **See [OUTLOOK_SETUP.md](OUTLOOK_SETUP.md) for detailed configuration instructions**, including:
+- How to verify Outlook connection
+- Which email account is used
+- Where Outlook is configured in the code
+- Complete list of API calls
+- Troubleshooting connection issues
+
+### Quick Outlook Checklist
+- ✓ Outlook is installed and running
+- ✓ At least one email account is configured in Outlook
+- ✓ Default email account is set (File > Account Settings)
+- ✓ `pywin32` is installed: `pip install pywin32`
+
+**Testing the Connection:**
+```python
+from src.outlook_manager import OutlookManager
+outlook = OutlookManager()  # Should connect without errors
+```
+
+See logs for connection details: `grep "\[OUTLOOK API\]" logs/sequence.log`
+
+---
+
 ## Configuration
 
 Edit `config.yaml` to customize your settings:
@@ -51,11 +84,79 @@ followup_delays:
   - 3    # Days after initial send for followup_1
   - 7    # Days after initial send for followup_2
   - 14   # Days after initial send for followup_3
+  - 21   # Days after initial send for followup_4
+
+max_followups: 4   # Now supports 4 follow-ups (5 total emails)
 
 # Safety settings
 send_delay_seconds: 5        # Pause between emails
 dry_run: false               # Set to true for testing
+
+# Email sending options
+default_send_mode: "send"    # "send", "msg_file", or "defer"
+msg_output_folder: "msg_files"  # Folder for .msg files
+default_defer_hours: 1       # Hours to defer when using defer mode
+
+# Campaign ID tracking
+campaign_id_state_file: "campaign_id_state.json"  # Tracks unique email IDs
 ```
+
+## Unique Email ID System
+
+Each email sent by the system receives a unique tracking ID in the format **Lxxxxxx-y**:
+- **L**: Literal prefix
+- **xxxxxx**: 6-digit sequential number (000001 to 999999, supports 2 years of campaigns)
+- **y**: Email sequence number (1=initial, 2=followup_1, 3=followup_2, 4=followup_3, 5=followup_4)
+
+**Example IDs:**
+- `L000123-1` - Initial email, 123rd email sent
+- `L000124-2` - Follow-up 1, 124th email sent
+- `L000125-5` - Follow-up 4, 125th email sent
+
+The ID is automatically appended to the email subject line: `Your Subject [L000123-1]`
+
+This allows for:
+- Unique tracking of each email
+- Easy identification of which email in the sequence
+- Campaign analytics and monitoring
+```
+
+## Email Sending Options
+
+The system supports three different modes for sending emails:
+
+### 1. Send Immediately (default)
+Emails are sent immediately via Outlook. This is the standard behavior.
+
+```yaml
+default_send_mode: "send"
+```
+
+### 2. Save as .msg File
+Instead of sending, emails are saved as .msg files in the specified folder. This allows you to:
+- Review emails before sending
+- Manually send them from Outlook
+- Archive drafts for compliance
+
+```yaml
+default_send_mode: "msg_file"
+msg_output_folder: "msg_files"  # Folder where .msg files will be saved
+```
+
+The system will create one .msg file per email with the filename format: `YYYYMMDD_HHMMSS_recipient@email.com.msg`
+
+### 3. Defer Sending
+Emails are created with Outlook's deferred delivery feature, scheduling them to be sent after a specified number of hours. This is useful for:
+- Sending emails during business hours even if you prepare them at night
+- Spreading out email sends to avoid spam detection
+- Time zone management
+
+```yaml
+default_send_mode: "defer"
+default_defer_hours: 1  # Send 1 hour from now
+```
+
+**Note**: When using GUI, you can override the default send mode for individual contacts or operations.
 
 ## Usage
 
@@ -72,8 +173,16 @@ Set `status` to `pending` for contacts you want to include in the sequence.
 
 Or add contacts via command line:
 ```bash
-python main.py add --email "john@company.com" --first-name "John" --last-name "Doe" --company "Acme Corp"
+python main.py add --email "john@company.com" --first-name "John" --last-name "Doe" --company "Acme Corp" --status "pending"
 ```
+
+**Status Options:**
+You can add contacts with any status to control when they enter the sequence:
+- `pending` (default) - Ready to receive initial email
+- `sent` - Already sent initial email (will receive follow-ups if needed)
+- `followup_1`, `followup_2`, `followup_3` - Already in follow-up sequence
+- `replied` - Contact has replied (will not receive further emails)
+- `opted_out` - Contact has opted out (will not receive further emails)
 
 ### 2. Customize Email Templates
 
@@ -245,13 +354,193 @@ pip install --upgrade -r requirements.txt
 6. **Backup contacts**: Keep a backup of `contacts.xlsx`
 7. **Professional tone**: Keep emails professional and respectful
 
+## Graphical User Interface (GUI)
+
+The system includes a modern GUI for managing campaigns, contacts, templates, and email sequences.
+
+### Starting the GUI
+
+```bash
+python gui_app.py
+```
+
+### GUI Features
+
+#### 1. Dashboard
+- Overview of active campaign and email sequence statistics
+- Quick access to common operations
+- Real-time status updates
+
+#### 2. Contacts Management
+- View and edit contacts in a searchable, filterable table
+- Add new contacts with custom status selection
+- Import contacts from CSV with column mapping
+- Filter contacts by status (pending, sent, followup_1-4, replied, etc.)
+- Send individual emails with custom sending options
+
+#### 3. Sequence Control
+- Start/stop email sequences
+- Send initial emails and follow-ups
+- Check for replies
+- Run full cycles (check + followup)
+- Override default sending mode per operation
+
+#### 4. Templates Editor
+- View and edit all email templates
+- Live HTML preview
+- Syntax highlighting
+- Template validation
+- Access to templates library
+
+#### 5. **Campaign Management** ⭐
+Complete campaign lifecycle management with:
+
+**Campaign Features:**
+- **Create New Campaigns**: Set up isolated campaigns with unique contacts and templates
+- **Switch Active Campaign**: Easily switch between different campaigns using the dropdown selector
+- **Import/Export Campaigns**: Share campaigns via ZIP files
+- **Template Library**: Shared template repository accessible to all campaigns
+
+**Campaign Structure:**
+Each campaign has its own isolated folder:
+```
+campaigns/
+├── My_Campaign_1/
+│   ├── contacts.xlsx          # Campaign-specific contacts
+│   ├── templates/             # Campaign-specific templates
+│   │   ├── initial.html
+│   │   ├── followup_1.html
+│   │   ├── followup_2.html
+│   │   ├── followup_3.html
+│   │   └── followup_4.html
+│   ├── logs/                  # Campaign-specific logs
+│   ├── campaign_config.yaml   # Campaign configuration
+│   └── campaign_id_state.json # Email ID tracking
+├── My_Campaign_2/
+│   └── ...
+└── campaigns_state.json       # Active campaign tracker
+```
+
+**Creating a Campaign:**
+1. Navigate to "Campaigns" tab in GUI
+2. Click "+ New Campaign"
+3. Enter campaign details:
+   - Campaign name
+   - Sender name
+   - Default subject line
+   - Optionally copy templates from existing campaign
+4. Campaign folder is automatically created with all necessary files
+
+**Switching Campaigns:**
+Use the dropdown selector in the sidebar to switch between campaigns. All frames (Contacts, Sequence, Templates) will automatically use the active campaign's data.
+
+**Import/Export:**
+- **Export**: Select campaign → Export to ZIP file (includes all contacts, templates, and config)
+- **Import**: Import ZIP file → Automatically extracts to new campaign folder
+
+**Templates Library:**
+- Shared folder (`templates_library/`) for reusable templates
+- Browse library from Campaigns tab
+- Add new templates to library
+- Copy templates from library to any campaign
+- Great for maintaining standard templates across multiple campaigns
+
+#### 6. Logs Viewer
+- Real-time log viewing with filtering
+- Search logs by keyword or operation type
+- Export logs to file
+- Clear old logs
+
+#### 7. Settings
+- Configure email sending options
+- Adjust sequence timing
+- Set reply detection parameters
+- Customize GUI appearance
+- Edit configuration files
+
+### Email Sending Options in GUI
+
+When sending emails through the GUI, you can choose between three modes:
+
+1. **Send Immediately**: Email is sent right away via Outlook
+2. **Save as .msg File**: Email is saved for manual review/sending later
+3. **Defer Send**: Email is scheduled to send after X hours
+
+These options override the default sending mode configured in `config.yaml`.
+
+### Campaign Selector
+
+The **Active Campaign** dropdown in the sidebar shows:
+- Currently active campaign name
+- List of all available campaigns
+- Quick switching between campaigns
+
+When you switch campaigns, all data (contacts, templates, sequences) automatically updates to use the new campaign's resources.
+
+### Keyboard Shortcuts
+
+- `Ctrl+N`: New contact
+- `Ctrl+S`: Save changes
+- `Ctrl+F`: Search/filter
+- `Ctrl+R`: Refresh current view
+- `F5`: Run sequence cycle
+
 ## Logging
 
-All activity is logged to `logs/sequence.log`:
-- Emails sent
-- Replies detected
-- Errors and warnings
-- Status changes
+The application provides **comprehensive logging** of all operations. All activity is logged to `logs/sequence.log`.
+
+### What is Logged
+
+The system logs all major operations with detailed prefixes:
+
+| Prefix | What It Logs |
+|--------|--------------|
+| `[OUTLOOK API]` | All Outlook COM API calls (connection, sending, inbox scanning) |
+| `[FILE READ]` | File read operations with absolute paths and file sizes |
+| `[FILE WRITE]` | File write operations with absolute paths and bytes written |
+| `[FILE CREATE]` | New file creation operations |
+| `[QUERY]` | Database queries (contact lookups, filters) |
+| `[UPDATE]` | Contact record updates |
+| `[ADD]` | New contact additions |
+| `[RENDER]` | Email template rendering operations |
+| `[TEMPLATES]` | Template engine initialization and discovery |
+
+### Example Log Output
+
+```
+2026-01-18 10:30:15 - INFO - [OUTLOOK API] Successfully connected to Outlook version 16.0
+2026-01-18 10:30:20 - INFO - [FILE READ] Loaded 25 contacts from C:\email-sequence\contacts.xlsx
+2026-01-18 10:30:30 - INFO - [TEMPLATES] Found 4 templates: followup_1, followup_2, followup_3, initial
+2026-01-18 10:30:40 - INFO - [OUTLOOK API] Email sent successfully to john@company.com
+2026-01-18 10:30:45 - INFO - [FILE WRITE] Successfully saved to C:\email-sequence\contacts.xlsx (12345 bytes)
+```
+
+### Viewing Logs
+
+**Real-time monitoring (PowerShell):**
+```powershell
+Get-Content -Path "logs\sequence.log" -Wait -Tail 50
+```
+
+**Filter by operation type:**
+```bash
+# Show only Outlook API calls
+grep "\[OUTLOOK API\]" logs/sequence.log
+
+# Show only file operations
+grep "\[FILE" logs/sequence.log
+
+# Show errors
+grep "ERROR" logs/sequence.log
+```
+
+### Files Read/Written
+
+The logs show **exact paths** for all file operations:
+- **Read:** `contacts.xlsx`, `templates/*.html`, configuration files
+- **Written:** `contacts.xlsx`, `logs/sequence.log`, `.msg` files in `msg_files/`
+
+All paths are logged as **absolute paths** for easy verification.
 
 ## Data Privacy
 
