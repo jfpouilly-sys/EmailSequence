@@ -1,0 +1,276 @@
+# Email Sequence Automation System
+
+A Python-based email sequence automation system for Windows 11 that sends personalized emails via Microsoft Outlook, tracks replies automatically, and manages follow-up sequences.
+
+## Features
+
+- **Automated Email Sequences**: Send initial emails and up to 3 follow-ups automatically
+- **Reply Tracking**: Scans Outlook inbox to detect replies and update contact status
+- **Excel-Based Contact Management**: Simple contact database using Excel
+- **Template System**: Customizable HTML email templates with personalization
+- **Dry Run Mode**: Test your sequences without actually sending emails
+- **Task Scheduler Integration**: Run automated cycles to check replies and send follow-ups
+
+## Requirements
+
+- Windows 11 (or Windows 10)
+- Microsoft Outlook (desktop application) installed and configured
+- Python 3.8 or higher
+
+## Installation
+
+1. **Clone or download this repository**
+
+2. **Install Python dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Initialize the system**:
+   ```bash
+   python main.py init
+   ```
+
+   This will create:
+   - `contacts.xlsx` - Contact database with sample data
+   - `templates/` - Email template directory (already populated)
+   - `logs/` - Log file directory
+   - `config.yaml` - Configuration file (already exists)
+
+## Configuration
+
+Edit `config.yaml` to customize your settings:
+
+```yaml
+# Email settings
+sender_name: "Your Name"
+default_subject: "Your Subject Line"
+
+# Sequence timing (in days)
+followup_delays:
+  - 3    # Days after initial send for followup_1
+  - 7    # Days after initial send for followup_2
+  - 14   # Days after initial send for followup_3
+
+# Safety settings
+send_delay_seconds: 5        # Pause between emails
+dry_run: false               # Set to true for testing
+```
+
+## Usage
+
+### 1. Add Contacts
+
+Edit `contacts.xlsx` and add your contacts with the following required fields:
+- `title` - Mr, Ms, Dr, etc.
+- `first_name` - First name
+- `last_name` - Last name
+- `email` - Email address
+- `company` - Company name
+
+Set `status` to `pending` for contacts you want to include in the sequence.
+
+Or add contacts via command line:
+```bash
+python main.py add --email "john@company.com" --first-name "John" --last-name "Doe" --company "Acme Corp"
+```
+
+### 2. Customize Email Templates
+
+Edit templates in the `templates/` folder:
+- `initial.html` - First email
+- `followup_1.html` - First follow-up (sent after 3 days)
+- `followup_2.html` - Second follow-up (sent after 7 days)
+- `followup_3.html` - Third follow-up (sent after 14 days)
+
+**Available placeholders**:
+- `{title}` - Mr, Ms, Dr, etc.
+- `{first_name}` - Contact's first name
+- `{last_name}` - Contact's last name
+- `{full_name}` - Full name (first + last)
+- `{email}` - Contact's email
+- `{company}` - Company name
+- `{sender_name}` - Your name from config
+
+### 3. Test Your Sequence (Dry Run)
+
+```bash
+python main.py send --dry-run
+```
+
+This will open emails in Outlook without sending them. Review each email before going live.
+
+### 4. Send Initial Emails
+
+```bash
+python main.py send
+```
+
+This sends the initial email to all contacts with `status=pending`.
+
+### 5. Check for Replies
+
+```bash
+python main.py check
+```
+
+Scans your Outlook inbox for replies and updates contact statuses.
+
+### 6. Send Follow-ups
+
+```bash
+python main.py followup
+```
+
+Sends follow-up emails to contacts who haven't replied, based on the timing in `config.yaml`.
+
+### 7. Run Full Cycle
+
+```bash
+python main.py cycle
+```
+
+Combines steps 5 and 6: checks for replies, then sends follow-ups. **Use this for scheduled tasks.**
+
+### 8. View Status
+
+```bash
+python main.py status
+```
+
+Shows a summary of your sequence:
+- Total contacts
+- Breakdown by status
+- Reply rate
+- Last activity
+
+## CLI Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `python main.py init` | Initialize system (create files and folders) |
+| `python main.py send [--dry-run]` | Send initial emails to pending contacts |
+| `python main.py check` | Check inbox for replies |
+| `python main.py followup [--dry-run]` | Send follow-ups to non-responders |
+| `python main.py cycle` | Run full cycle (check + followup) |
+| `python main.py status` | Show status report |
+| `python main.py add` | Add a new contact |
+| `python main.py optout --email <email>` | Mark contact as opted-out |
+| `python main.py reset --email <email>` | Reset contact to pending |
+| `python main.py templates` | List available templates |
+
+## Contact Status Values
+
+- `pending` - Not yet contacted
+- `sent` - Initial email sent, awaiting reply
+- `followup_1` - First follow-up sent
+- `followup_2` - Second follow-up sent
+- `followup_3` - Third follow-up sent
+- `replied` - Contact replied (sequence complete)
+- `bounced` - Email failed to send
+- `opted_out` - Contact requested removal
+- `completed` - Max follow-ups reached, no reply
+
+## Automation with Windows Task Scheduler
+
+To run the cycle automatically every 30 minutes:
+
+### Option 1: PowerShell Script
+
+1. Create a PowerShell script (e.g., `run_cycle.ps1`):
+   ```powershell
+   cd "C:\path\to\EmailSequence"
+   python main.py cycle
+   ```
+
+2. Create scheduled task:
+   ```powershell
+   $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File C:\path\to\EmailSequence\run_cycle.ps1" -WorkingDirectory "C:\path\to\EmailSequence"
+   $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration ([TimeSpan]::MaxValue)
+   $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopOnIdleEnd
+   Register-ScheduledTask -TaskName "EmailSequenceCycle" -Action $Action -Trigger $Trigger -Settings $Settings -Description "Check replies and send follow-ups"
+   ```
+
+### Option 2: Using Task Scheduler GUI
+
+1. Open Task Scheduler
+2. Create Basic Task
+3. Name: "Email Sequence Cycle"
+4. Trigger: Daily, repeat every 30 minutes
+5. Action: Start a program
+   - Program: `python`
+   - Arguments: `main.py cycle`
+   - Start in: `C:\path\to\EmailSequence`
+
+## Troubleshooting
+
+### Outlook Security Prompt
+
+If you see a security prompt when sending emails:
+
+1. **Allow access**: Click "Allow" and "Allow access for 10 minutes"
+2. **Disable prompt** (if using your own computer):
+   - Add this registry key (requires admin):
+     ```
+     [HKEY_CURRENT_USER\Software\Microsoft\Office\16.0\Outlook\Security]
+     "PromptOOMSend"=dword:00000000
+     ```
+
+### Excel File Locked
+
+If you get "file is locked" errors:
+- Close `contacts.xlsx` in Excel before running commands
+- The system will retry once automatically after 5 seconds
+
+### No Replies Detected
+
+- Check that `inbox_scan_days` in config.yaml is long enough
+- Verify the contact is replying to the same email thread
+- Check Outlook inbox manually to confirm the reply exists
+
+### Import Errors
+
+If you get import errors when running Python:
+```bash
+pip install --upgrade -r requirements.txt
+```
+
+## Best Practices
+
+1. **Start with dry run**: Always test with `--dry-run` first
+2. **Small batches**: Start with 5-10 contacts to test the flow
+3. **Personalize templates**: Generic emails get lower response rates
+4. **Respect opt-outs**: Always honor unsubscribe requests
+5. **Monitor logs**: Check `logs/sequence.log` regularly
+6. **Backup contacts**: Keep a backup of `contacts.xlsx`
+7. **Professional tone**: Keep emails professional and respectful
+
+## Logging
+
+All activity is logged to `logs/sequence.log`:
+- Emails sent
+- Replies detected
+- Errors and warnings
+- Status changes
+
+## Data Privacy
+
+- No credentials are stored (uses Outlook's existing authentication)
+- `contacts.xlsx` contains personal information - keep it secure
+- Consider encrypting the Excel file if it contains sensitive data
+- Rotate/delete logs periodically
+
+## Support
+
+For issues or questions:
+1. Check the logs in `logs/sequence.log`
+2. Run commands with `-v` flag for verbose output
+3. Ensure Outlook is running and configured properly
+
+## License
+
+This is a custom tool built for internal use. Modify as needed for your requirements.
+
+## Version
+
+Current Version: 1.0.0
