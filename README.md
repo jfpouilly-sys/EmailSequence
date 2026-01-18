@@ -7,6 +7,11 @@ A Python-based email sequence automation system for Windows 11 that sends person
 - **Automated Email Sequences**: Send initial emails and up to 3 follow-ups automatically
 - **Reply Tracking**: Scans Outlook inbox to detect replies and update contact status
 - **Excel-Based Contact Management**: Simple contact database using Excel
+- **Flexible Contact Status**: Add contacts with any status (pending, sent, followup_1, etc.)
+- **Multiple Email Sending Options**:
+  - Send emails immediately via Outlook
+  - Save emails as .msg files in a designated folder for manual review/sending
+  - Defer email sending by a specified number of hours using Outlook's deferred delivery
 - **Template System**: Customizable HTML email templates with personalization
 - **Dry Run Mode**: Test your sequences without actually sending emails
 - **Task Scheduler Integration**: Run automated cycles to check replies and send follow-ups
@@ -55,7 +60,49 @@ followup_delays:
 # Safety settings
 send_delay_seconds: 5        # Pause between emails
 dry_run: false               # Set to true for testing
+
+# Email sending options
+default_send_mode: "send"    # "send", "msg_file", or "defer"
+msg_output_folder: "msg_files"  # Folder for .msg files
+default_defer_hours: 1       # Hours to defer when using defer mode
 ```
+
+## Email Sending Options
+
+The system supports three different modes for sending emails:
+
+### 1. Send Immediately (default)
+Emails are sent immediately via Outlook. This is the standard behavior.
+
+```yaml
+default_send_mode: "send"
+```
+
+### 2. Save as .msg File
+Instead of sending, emails are saved as .msg files in the specified folder. This allows you to:
+- Review emails before sending
+- Manually send them from Outlook
+- Archive drafts for compliance
+
+```yaml
+default_send_mode: "msg_file"
+msg_output_folder: "msg_files"  # Folder where .msg files will be saved
+```
+
+The system will create one .msg file per email with the filename format: `YYYYMMDD_HHMMSS_recipient@email.com.msg`
+
+### 3. Defer Sending
+Emails are created with Outlook's deferred delivery feature, scheduling them to be sent after a specified number of hours. This is useful for:
+- Sending emails during business hours even if you prepare them at night
+- Spreading out email sends to avoid spam detection
+- Time zone management
+
+```yaml
+default_send_mode: "defer"
+default_defer_hours: 1  # Send 1 hour from now
+```
+
+**Note**: When using GUI, you can override the default send mode for individual contacts or operations.
 
 ## Usage
 
@@ -72,8 +119,16 @@ Set `status` to `pending` for contacts you want to include in the sequence.
 
 Or add contacts via command line:
 ```bash
-python main.py add --email "john@company.com" --first-name "John" --last-name "Doe" --company "Acme Corp"
+python main.py add --email "john@company.com" --first-name "John" --last-name "Doe" --company "Acme Corp" --status "pending"
 ```
+
+**Status Options:**
+You can add contacts with any status to control when they enter the sequence:
+- `pending` (default) - Ready to receive initial email
+- `sent` - Already sent initial email (will receive follow-ups if needed)
+- `followup_1`, `followup_2`, `followup_3` - Already in follow-up sequence
+- `replied` - Contact has replied (will not receive further emails)
+- `opted_out` - Contact has opted out (will not receive further emails)
 
 ### 2. Customize Email Templates
 

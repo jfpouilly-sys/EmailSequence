@@ -1,6 +1,7 @@
 """Outlook COM automation for email operations."""
 from datetime import datetime, timedelta
 from typing import Optional
+import os
 import win32com.client
 import pythoncom
 
@@ -30,23 +31,30 @@ class OutlookManager:
         to: str,
         subject: str,
         html_body: str,
-        dry_run: bool = False
+        dry_run: bool = False,
+        send_mode: str = "send",
+        defer_hours: int = 0,
+        msg_folder: str = ""
     ) -> dict:
         """
-        Send an email via Outlook.
+        Send an email via Outlook with flexible sending options.
 
         Args:
             to: Recipient email address
             subject: Email subject line
             html_body: HTML-formatted email body
             dry_run: If True, display email instead of sending
+            send_mode: "send" (immediate), "msg_file" (save as .msg), or "defer" (delay send)
+            defer_hours: Hours to defer sending (only used if send_mode="defer")
+            msg_folder: Folder path for saving .msg files (only used if send_mode="msg_file")
 
         Returns:
             {
                 "success": bool,
                 "conversation_id": str,  # From mail.ConversationTopic
                 "sent_time": datetime,
-                "error": str | None
+                "error": str | None,
+                "msg_file_path": str | None  # Path to .msg file if send_mode="msg_file"
             }
         """
         try:
@@ -56,13 +64,44 @@ class OutlookManager:
             mail.HTMLBody = html_body
 
             sent_time = datetime.now()
+            msg_file_path = None
 
             if dry_run:
                 # Display email in Outlook window instead of sending
                 mail.Display()
                 conversation_id = subject  # Use subject as fallback in dry run
-            else:
-                # Actually send the email
+
+            elif send_mode == "msg_file":
+                # Save as .msg file
+                if not msg_folder:
+                    raise ValueError("msg_folder must be specified when send_mode='msg_file'")
+
+                # Create folder if it doesn't exist
+                os.makedirs(msg_folder, exist_ok=True)
+
+                # Generate filename: YYYYMMDD_HHMMSS_recipient.msg
+                timestamp = sent_time.strftime("%Y%m%d_%H%M%S")
+                # Sanitize email for filename
+                safe_email = to.replace("@", "_at_").replace(".", "_")
+                filename = f"{timestamp}_{safe_email}.msg"
+                msg_file_path = os.path.join(msg_folder, filename)
+
+                # Save the message
+                mail.SaveAs(msg_file_path, 3)  # 3 = olMSG format
+                conversation_id = subject
+
+            elif send_mode == "defer":
+                # Schedule deferred delivery
+                if defer_hours > 0:
+                    defer_time = sent_time + timedelta(hours=defer_hours)
+                    mail.DeferredDeliveryTime = defer_time
+
+                # Send the email (it will be held in Outbox until defer time)
+                mail.Send()
+                conversation_id = subject
+
+            else:  # send_mode == "send" (default)
+                # Actually send the email immediately
                 mail.Send()
                 # ConversationTopic is assigned by Outlook after sending
                 # It might be the same as subject or a normalized version
@@ -72,7 +111,8 @@ class OutlookManager:
                 "success": True,
                 "conversation_id": conversation_id,
                 "sent_time": sent_time,
-                "error": None
+                "error": None,
+                "msg_file_path": msg_file_path
             }
 
         except Exception as e:
@@ -80,7 +120,8 @@ class OutlookManager:
                 "success": False,
                 "conversation_id": None,
                 "sent_time": None,
-                "error": str(e)
+                "error": str(e),
+                "msg_file_path": None
             }
 
     def check_for_reply(

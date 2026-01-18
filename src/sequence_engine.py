@@ -93,12 +93,15 @@ class SequenceEngine:
                     self.config.sender_name
                 )
 
-                # Send email
+                # Send email with configured send mode
                 result = self.outlook.send_email(
                     to=contact['email'],
                     subject=self.config.default_subject,
                     html_body=html_body,
-                    dry_run=self.config.dry_run
+                    dry_run=self.config.dry_run,
+                    send_mode=self.config.default_send_mode,
+                    defer_hours=self.config.default_defer_hours,
+                    msg_folder=self.config.msg_output_folder
                 )
 
                 if result['success']:
@@ -275,7 +278,10 @@ class SequenceEngine:
                     to=contact['email'],
                     subject=self.config.default_subject,
                     html_body=html_body,
-                    dry_run=self.config.dry_run
+                    dry_run=self.config.dry_run,
+                    send_mode=self.config.default_send_mode,
+                    defer_hours=self.config.default_defer_hours,
+                    msg_folder=self.config.msg_output_folder
                 )
 
                 if result['success']:
@@ -445,3 +451,85 @@ class SequenceEngine:
         self.logger.info("Full cycle complete")
 
         return combined
+
+    def send_single_email(
+        self,
+        email: str,
+        template_name: str = 'initial',
+        send_mode: str = None,
+        defer_hours: int = None,
+        msg_folder: str = None
+    ) -> dict:
+        """
+        Send a single email to a specific contact with custom options.
+        Useful for GUI-based manual sends.
+
+        Args:
+            email: Contact email address
+            template_name: Template to use ('initial', 'followup_1', etc.)
+            send_mode: Override default send mode ('send', 'msg_file', 'defer')
+            defer_hours: Override default defer hours
+            msg_folder: Override default msg folder
+
+        Returns:
+            {
+                "success": bool,
+                "error": str | None,
+                "msg_file_path": str | None
+            }
+        """
+        # Get contact
+        contact = self.tracker.get_contact_by_email(email)
+        if not contact:
+            return {
+                "success": False,
+                "error": f"Contact not found: {email}",
+                "msg_file_path": None
+            }
+
+        # Use config defaults if not specified
+        if send_mode is None:
+            send_mode = self.config.default_send_mode
+        if defer_hours is None:
+            defer_hours = self.config.default_defer_hours
+        if msg_folder is None:
+            msg_folder = self.config.msg_output_folder
+
+        try:
+            # Render template
+            html_body = self.template_engine.render(
+                template_name,
+                contact,
+                self.config.sender_name
+            )
+
+            # Send email
+            result = self.outlook.send_email(
+                to=email,
+                subject=self.config.default_subject,
+                html_body=html_body,
+                dry_run=False,
+                send_mode=send_mode,
+                defer_hours=defer_hours,
+                msg_folder=msg_folder
+            )
+
+            if result['success']:
+                self.logger.info(
+                    f"Sent {template_name} to {email} (mode: {send_mode})"
+                )
+
+            return {
+                "success": result['success'],
+                "error": result.get('error'),
+                "msg_file_path": result.get('msg_file_path')
+            }
+
+        except Exception as e:
+            error_msg = f"Error sending to {email}: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "msg_file_path": None
+            }

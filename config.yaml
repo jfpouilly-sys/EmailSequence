@@ -24,3 +24,8 @@ match_by: "conversation"     # "conversation" or "subject"
 # Safety settings
 send_delay_seconds: 5        # Pause between emails (avoid spam flags)
 dry_run: false               # If true, display emails but don't send
+
+# Email sending options
+default_send_mode: "send"    # "send" (immediate), "msg_file" (save as .msg), or "defer" (delay)
+msg_output_folder: "msg_files"  # Folder for saving .msg files
+default_defer_hours: 1       # Hours to defer when using "defer" mode

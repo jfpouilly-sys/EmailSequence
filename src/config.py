@@ -109,3 +109,24 @@ class Config:
     def dry_run(self) -> bool:
         """Whether to display emails instead of sending."""
         return self._get('dry_run', False)
+
+    @property
+    def default_send_mode(self) -> str:
+        """Default email sending mode: 'send', 'msg_file', or 'defer'."""
+        mode = self._get('default_send_mode', 'send')
+        if mode not in ['send', 'msg_file', 'defer']:
+            return 'send'
+        return mode
+
+    @property
+    def msg_output_folder(self) -> str:
+        """Folder for saving .msg files."""
+        return self._get('msg_output_folder', 'msg_files')
+
+    @property
+    def default_defer_hours(self) -> int:
+        """Default hours to defer when using defer mode."""
+        hours = self._get('default_defer_hours', 1)
+        if not isinstance(hours, int) or hours < 0:
+            return 1
+        return hours

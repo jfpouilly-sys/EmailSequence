@@ -472,3 +472,188 @@ class InfoDialog(ctk.CTkToplevel):
         """
         dialog = InfoDialog(parent, title, message)
         dialog.wait_window()
+
+
+class SendOptionsDialog(ctk.CTkToplevel):
+    """Dialog for choosing email sending options."""
+
+    def __init__(
+        self,
+        parent,
+        title: str = "Email Sending Options",
+        default_mode: str = "send",
+        default_defer_hours: int = 1,
+        msg_folder: str = "msg_files"
+    ):
+        """Initialize send options dialog.
+
+        Args:
+            parent: Parent window
+            title: Dialog title
+            default_mode: Default send mode ("send", "msg_file", "defer")
+            default_defer_hours: Default hours to defer
+            msg_folder: Default .msg folder path
+        """
+        super().__init__(parent)
+
+        self.result: Optional[Dict] = None
+
+        # Window configuration
+        self.title(title)
+        self.geometry("500x300")
+        self.resizable(False, False)
+
+        # Make modal
+        self.transient(parent)
+        self.grab_set()
+
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - 500) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - 300) // 2
+        self.geometry(f"+{x}+{y}")
+
+        # Configure grid
+        self.grid_columnconfigure(0, weight=1)
+
+        # Instructions
+        instructions = ctk.CTkLabel(
+            self,
+            text="Choose how to send the email:",
+            font=("Arial Bold", 13)
+        )
+        instructions.grid(row=0, column=0, pady=(20, 10), padx=20, sticky="w")
+
+        # Send mode radio buttons
+        self.mode_var = StringVar(value=default_mode)
+
+        radio_frame = ctk.CTkFrame(self, fg_color="transparent")
+        radio_frame.grid(row=1, column=0, pady=10, padx=40, sticky="w")
+
+        send_radio = ctk.CTkRadioButton(
+            radio_frame,
+            text="Send Immediately - Send via Outlook now",
+            variable=self.mode_var,
+            value="send",
+            font=("Arial", 11)
+        )
+        send_radio.pack(anchor="w", pady=5)
+
+        msg_radio = ctk.CTkRadioButton(
+            radio_frame,
+            text="Save as .msg File - Create .msg file for manual review",
+            variable=self.mode_var,
+            value="msg_file",
+            font=("Arial", 11)
+        )
+        msg_radio.pack(anchor="w", pady=5)
+
+        defer_radio = ctk.CTkRadioButton(
+            radio_frame,
+            text="Defer Send - Schedule for later delivery",
+            variable=self.mode_var,
+            value="defer",
+            font=("Arial", 11)
+        )
+        defer_radio.pack(anchor="w", pady=5)
+
+        # Options frame
+        options_frame = ctk.CTkFrame(self, fg_color="transparent")
+        options_frame.grid(row=2, column=0, pady=10, padx=40, sticky="ew")
+        options_frame.grid_columnconfigure(1, weight=1)
+
+        # Defer hours
+        defer_label = ctk.CTkLabel(
+            options_frame,
+            text="Defer hours:",
+            font=("Arial", 11)
+        )
+        defer_label.grid(row=0, column=0, pady=5, padx=(0, 10), sticky="w")
+
+        self.defer_var = StringVar(value=str(default_defer_hours))
+        defer_entry = ctk.CTkEntry(
+            options_frame,
+            textvariable=self.defer_var,
+            width=80
+        )
+        defer_entry.grid(row=0, column=1, pady=5, sticky="w")
+
+        # .msg folder
+        msg_label = ctk.CTkLabel(
+            options_frame,
+            text=".msg folder:",
+            font=("Arial", 11)
+        )
+        msg_label.grid(row=1, column=0, pady=5, padx=(0, 10), sticky="w")
+
+        self.msg_folder_var = StringVar(value=msg_folder)
+        msg_entry = ctk.CTkEntry(
+            options_frame,
+            textvariable=self.msg_folder_var,
+            width=300
+        )
+        msg_entry.grid(row=1, column=1, pady=5, sticky="w")
+
+        # Button frame
+        button_frame = ctk.CTkFrame(self, fg_color="transparent")
+        button_frame.grid(row=3, column=0, pady=20)
+
+        # Cancel button
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            command=self._on_cancel,
+            width=120,
+            fg_color="gray"
+        )
+        cancel_btn.pack(side="left", padx=5)
+
+        # Send/Save button
+        send_btn = ctk.CTkButton(
+            button_frame,
+            text="Send/Save",
+            command=self._on_send,
+            width=120
+        )
+        send_btn.pack(side="left", padx=5)
+
+        # Bind Enter and Escape
+        self.bind('<Return>', lambda e: self._on_send())
+        self.bind('<Escape>', lambda e: self._on_cancel())
+
+    def _on_send(self) -> None:
+        """Handle send/save button click."""
+        mode = self.mode_var.get()
+
+        # Validate defer hours
+        defer_hours = 1
+        if mode == "defer":
+            try:
+                defer_hours = int(self.defer_var.get())
+                if defer_hours < 0:
+                    InfoDialog.show(self, "Invalid Input", "Defer hours must be positive.")
+                    return
+            except ValueError:
+                InfoDialog.show(self, "Invalid Input", "Defer hours must be a number.")
+                return
+
+        self.result = {
+            "mode": mode,
+            "defer_hours": defer_hours,
+            "msg_folder": self.msg_folder_var.get()
+        }
+        self.destroy()
+
+    def _on_cancel(self) -> None:
+        """Handle cancel button click."""
+        self.result = None
+        self.destroy()
+
+    def get_result(self) -> Optional[Dict]:
+        """Show dialog and return result.
+
+        Returns:
+            Dict with mode, defer_hours, msg_folder or None if cancelled
+        """
+        self.wait_window()
+        return self.result
