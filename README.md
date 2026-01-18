@@ -42,6 +42,31 @@ A Python-based email sequence automation system for Windows 11 that sends person
    - `logs/` - Log file directory
    - `config.yaml` - Configuration file (already exists)
 
+## Outlook Setup
+
+The application connects to Microsoft Outlook using COM automation. **See [OUTLOOK_SETUP.md](OUTLOOK_SETUP.md) for detailed configuration instructions**, including:
+- How to verify Outlook connection
+- Which email account is used
+- Where Outlook is configured in the code
+- Complete list of API calls
+- Troubleshooting connection issues
+
+### Quick Outlook Checklist
+- ✓ Outlook is installed and running
+- ✓ At least one email account is configured in Outlook
+- ✓ Default email account is set (File > Account Settings)
+- ✓ `pywin32` is installed: `pip install pywin32`
+
+**Testing the Connection:**
+```python
+from src.outlook_manager import OutlookManager
+outlook = OutlookManager()  # Should connect without errors
+```
+
+See logs for connection details: `grep "\[OUTLOOK API\]" logs/sequence.log`
+
+---
+
 ## Configuration
 
 Edit `config.yaml` to customize your settings:
@@ -302,11 +327,60 @@ pip install --upgrade -r requirements.txt
 
 ## Logging
 
-All activity is logged to `logs/sequence.log`:
-- Emails sent
-- Replies detected
-- Errors and warnings
-- Status changes
+The application provides **comprehensive logging** of all operations. All activity is logged to `logs/sequence.log`.
+
+### What is Logged
+
+The system logs all major operations with detailed prefixes:
+
+| Prefix | What It Logs |
+|--------|--------------|
+| `[OUTLOOK API]` | All Outlook COM API calls (connection, sending, inbox scanning) |
+| `[FILE READ]` | File read operations with absolute paths and file sizes |
+| `[FILE WRITE]` | File write operations with absolute paths and bytes written |
+| `[FILE CREATE]` | New file creation operations |
+| `[QUERY]` | Database queries (contact lookups, filters) |
+| `[UPDATE]` | Contact record updates |
+| `[ADD]` | New contact additions |
+| `[RENDER]` | Email template rendering operations |
+| `[TEMPLATES]` | Template engine initialization and discovery |
+
+### Example Log Output
+
+```
+2026-01-18 10:30:15 - INFO - [OUTLOOK API] Successfully connected to Outlook version 16.0
+2026-01-18 10:30:20 - INFO - [FILE READ] Loaded 25 contacts from C:\email-sequence\contacts.xlsx
+2026-01-18 10:30:30 - INFO - [TEMPLATES] Found 4 templates: followup_1, followup_2, followup_3, initial
+2026-01-18 10:30:40 - INFO - [OUTLOOK API] Email sent successfully to john@company.com
+2026-01-18 10:30:45 - INFO - [FILE WRITE] Successfully saved to C:\email-sequence\contacts.xlsx (12345 bytes)
+```
+
+### Viewing Logs
+
+**Real-time monitoring (PowerShell):**
+```powershell
+Get-Content -Path "logs\sequence.log" -Wait -Tail 50
+```
+
+**Filter by operation type:**
+```bash
+# Show only Outlook API calls
+grep "\[OUTLOOK API\]" logs/sequence.log
+
+# Show only file operations
+grep "\[FILE" logs/sequence.log
+
+# Show errors
+grep "ERROR" logs/sequence.log
+```
+
+### Files Read/Written
+
+The logs show **exact paths** for all file operations:
+- **Read:** `contacts.xlsx`, `templates/*.html`, configuration files
+- **Written:** `contacts.xlsx`, `logs/sequence.log`, `.msg` files in `msg_files/`
+
+All paths are logged as **absolute paths** for easy verification.
 
 ## Data Privacy
 

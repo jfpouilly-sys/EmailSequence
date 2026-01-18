@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 import os
+import logging
 import win32com.client
 import pythoncom
 
@@ -16,10 +17,25 @@ class OutlookManager:
         Raises:
             ConnectionError: If Outlook is not running/available
         """
+        self.logger = logging.getLogger(__name__)
+
         try:
+            self.logger.info("[OUTLOOK API] Initializing Outlook COM connection...")
+            self.logger.info("[OUTLOOK API] Calling win32com.client.Dispatch('Outlook.Application')")
             self.outlook = win32com.client.Dispatch('Outlook.Application')
+
+            self.logger.info("[OUTLOOK API] Calling GetNamespace('MAPI')")
             self.namespace = self.outlook.GetNamespace('MAPI')
+
+            # Get Outlook version for logging
+            try:
+                version = self.outlook.Version
+                self.logger.info(f"[OUTLOOK API] Successfully connected to Outlook version {version}")
+            except:
+                self.logger.info("[OUTLOOK API] Successfully connected to Outlook (version unknown)")
+
         except Exception as e:
+            self.logger.error(f"[OUTLOOK API] Failed to connect to Outlook: {str(e)}")
             raise ConnectionError(
                 "Could not connect to Microsoft Outlook.\n"
                 "Please ensure Outlook is installed and try again.\n"
@@ -58,18 +74,25 @@ class OutlookManager:
             }
         """
         try:
+            self.logger.info(f"[OUTLOOK API] Creating email: To={to}, Subject='{subject}', Mode={send_mode}")
+
+            self.logger.debug("[OUTLOOK API] Calling outlook.CreateItem(0) to create MailItem")
             mail = self.outlook.CreateItem(0)  # 0 = MailItem
+
             mail.To = to
             mail.Subject = subject
             mail.HTMLBody = html_body
+            self.logger.debug(f"[OUTLOOK API] Email properties set (body length: {len(html_body)} chars)")
 
             sent_time = datetime.now()
             msg_file_path = None
 
             if dry_run:
                 # Display email in Outlook window instead of sending
+                self.logger.info("[OUTLOOK API] DRY RUN mode - Calling mail.Display()")
                 mail.Display()
                 conversation_id = subject  # Use subject as fallback in dry run
+                self.logger.info(f"[OUTLOOK API] Email displayed for review: {to}")
 
             elif send_mode == "msg_file":
                 # Save as .msg file
@@ -77,7 +100,9 @@ class OutlookManager:
                     raise ValueError("msg_folder must be specified when send_mode='msg_file'")
 
                 # Create folder if it doesn't exist
+                abs_folder = os.path.abspath(msg_folder)
                 os.makedirs(msg_folder, exist_ok=True)
+                self.logger.info(f"[FILE WRITE] .msg output folder: {abs_folder}")
 
                 # Generate filename: YYYYMMDD_HHMMSS_recipient.msg
                 timestamp = sent_time.strftime("%Y%m%d_%H%M%S")
@@ -85,27 +110,36 @@ class OutlookManager:
                 safe_email = to.replace("@", "_at_").replace(".", "_")
                 filename = f"{timestamp}_{safe_email}.msg"
                 msg_file_path = os.path.join(msg_folder, filename)
+                abs_msg_path = os.path.abspath(msg_file_path)
 
                 # Save the message
+                self.logger.info(f"[OUTLOOK API] Calling mail.SaveAs('{abs_msg_path}', 3) to save .msg file")
                 mail.SaveAs(msg_file_path, 3)  # 3 = olMSG format
+                file_size = os.path.getsize(msg_file_path)
+                self.logger.info(f"[FILE WRITE] Saved .msg file: {abs_msg_path} ({file_size} bytes)")
                 conversation_id = subject
 
             elif send_mode == "defer":
                 # Schedule deferred delivery
                 if defer_hours > 0:
                     defer_time = sent_time + timedelta(hours=defer_hours)
+                    self.logger.info(f"[OUTLOOK API] Setting DeferredDeliveryTime to {defer_time} (in {defer_hours} hours)")
                     mail.DeferredDeliveryTime = defer_time
 
                 # Send the email (it will be held in Outbox until defer time)
+                self.logger.info(f"[OUTLOOK API] Calling mail.Send() - email will be sent at {defer_time if defer_hours > 0 else 'next send/receive'}")
                 mail.Send()
+                self.logger.info(f"[OUTLOOK API] Deferred email queued for {to}")
                 conversation_id = subject
 
             else:  # send_mode == "send" (default)
                 # Actually send the email immediately
+                self.logger.info(f"[OUTLOOK API] Calling mail.Send() to send email immediately")
                 mail.Send()
                 # ConversationTopic is assigned by Outlook after sending
                 # It might be the same as subject or a normalized version
                 conversation_id = subject
+                self.logger.info(f"[OUTLOOK API] Email sent successfully to {to}")
 
             return {
                 "success": True,
@@ -116,6 +150,7 @@ class OutlookManager:
             }
 
         except Exception as e:
+            self.logger.error(f"[OUTLOOK API] Failed to send email to {to}: {str(e)}")
             return {
                 "success": False,
                 "conversation_id": None,
@@ -222,22 +257,33 @@ class OutlookManager:
         results = []
 
         try:
+            self.logger.info(f"[OUTLOOK API] Scanning inbox for replies from {len(known_contacts)} contacts (last {days_back} days)")
+            self.logger.debug("[OUTLOOK API] Calling namespace.GetDefaultFolder(6) to get Inbox")
             inbox = self.namespace.GetDefaultFolder(6)  # 6 = Inbox
+
             messages = inbox.Items
+            self.logger.debug(f"[OUTLOOK API] Found {messages.Count} total messages in inbox")
+
+            self.logger.debug("[OUTLOOK API] Sorting messages by ReceivedTime (newest first)")
             messages.Sort("[ReceivedTime]", True)  # Sort by newest first
 
             # Calculate cutoff date
             cutoff_date = datetime.now() - timedelta(days=days_back)
+            self.logger.debug(f"[OUTLOOK API] Cutoff date for scanning: {cutoff_date}")
 
             # Normalize contact emails for comparison
             contact_emails = {email.lower().strip() for email in known_contacts}
 
+            scanned_count = 0
             for message in messages:
                 try:
+                    scanned_count += 1
+
                     # Check received time
                     received_time = message.ReceivedTime
                     if received_time < cutoff_date:
                         # Messages are sorted, so we can stop here
+                        self.logger.debug(f"[OUTLOOK API] Reached cutoff date after scanning {scanned_count} messages")
                         break
 
                     # Get sender email address
@@ -250,6 +296,7 @@ class OutlookManager:
                         conversation_topic = getattr(message, 'ConversationTopic', '')
                         msg_subject = getattr(message, 'Subject', '')
 
+                        self.logger.info(f"[OUTLOOK API] Found reply from {msg_sender}: '{msg_subject}'")
                         results.append({
                             "sender_email": msg_sender,
                             "received_time": received_time,
@@ -257,12 +304,15 @@ class OutlookManager:
                             "conversation_topic": conversation_topic
                         })
 
-                except Exception:
+                except Exception as e:
                     # Skip messages that cause errors
+                    self.logger.debug(f"[OUTLOOK API] Error reading message: {str(e)}")
                     continue
 
-        except Exception:
-            pass
+            self.logger.info(f"[OUTLOOK API] Inbox scan complete: {scanned_count} messages scanned, {len(results)} replies found")
+
+        except Exception as e:
+            self.logger.error(f"[OUTLOOK API] Error scanning inbox: {str(e)}")
 
         return results
 

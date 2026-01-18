@@ -1,6 +1,7 @@
 """Contact database management using Excel."""
 import os
 import time
+import logging
 import pandas as pd
 from datetime import datetime
 from typing import Optional
@@ -29,14 +30,19 @@ class ContactTracker:
         """
         self.excel_path = excel_path
         self._df: Optional[pd.DataFrame] = None
+        self.logger = logging.getLogger(__name__)
 
         if not os.path.exists(excel_path):
             # Create new file with required columns
+            self.logger.info(f"[FILE CREATE] Creating new contacts file: {os.path.abspath(excel_path)}")
             self._df = pd.DataFrame(columns=self.REQUIRED_COLUMNS)
             self.save()
         else:
             # Load existing file
+            abs_path = os.path.abspath(excel_path)
+            self.logger.info(f"[FILE READ] Loading contacts from: {abs_path}")
             self._df = pd.read_excel(excel_path)
+            self.logger.info(f"[FILE READ] Loaded {len(self._df)} contacts from {abs_path}")
             self._validate_columns()
 
     def _validate_columns(self) -> None:
@@ -54,7 +60,9 @@ class ContactTracker:
 
     def get_pending_contacts(self) -> pd.DataFrame:
         """Return contacts with status='pending'."""
-        return self._df[self._df['status'] == 'pending'].copy()
+        result = self._df[self._df['status'] == 'pending'].copy()
+        self.logger.debug(f"[QUERY] Found {len(result)} pending contacts")
+        return result
 
     def get_contacts_needing_followup(self, followup_delays: list[int]) -> pd.DataFrame:
         """
@@ -120,7 +128,12 @@ class ContactTracker:
         mask = self._df['email'].str.lower() == email.lower()
 
         if not mask.any():
+            self.logger.warning(f"[UPDATE] Contact not found: {email}")
             return False
+
+        # Log update
+        update_fields = ', '.join(f"{k}={v}" for k, v in updates.items())
+        self.logger.info(f"[UPDATE] Updating contact {email}: {update_fields}")
 
         # Update fields
         for column, value in updates.items():
@@ -152,11 +165,17 @@ class ContactTracker:
         # Check for duplicate email
         email = contact_data['email']
         if (self._df['email'].str.lower() == email.lower()).any():
+            self.logger.warning(f"[ADD] Duplicate email, contact not added: {email}")
             return False
 
         # Set defaults
         if 'status' not in contact_data:
             contact_data['status'] = 'pending'
+
+        self.logger.info(
+            f"[ADD] Adding new contact: {contact_data.get('first_name')} "
+            f"{contact_data.get('last_name')} <{email}> (status: {contact_data['status']})"
+        )
 
         # Add missing columns with None
         for col in self.REQUIRED_COLUMNS:
@@ -175,14 +194,21 @@ class ContactTracker:
         Save current DataFrame to Excel file.
         Retries once if file is locked.
         """
+        abs_path = os.path.abspath(self.excel_path)
         try:
+            self.logger.info(f"[FILE WRITE] Saving {len(self._df)} contacts to: {abs_path}")
             self._df.to_excel(self.excel_path, index=False, engine='openpyxl')
+            file_size = os.path.getsize(self.excel_path)
+            self.logger.info(f"[FILE WRITE] Successfully saved to {abs_path} ({file_size} bytes)")
         except PermissionError:
             # File might be open in Excel - wait and retry once
+            self.logger.warning(f"[FILE WRITE] File locked, retrying in 5 seconds: {abs_path}")
             time.sleep(5)
             try:
                 self._df.to_excel(self.excel_path, index=False, engine='openpyxl')
+                self.logger.info(f"[FILE WRITE] Successfully saved on retry to: {abs_path}")
             except PermissionError:
+                self.logger.error(f"[FILE WRITE] Failed to save, file is locked: {abs_path}")
                 raise PermissionError(
                     f"Cannot save to {self.excel_path} - file is locked.\n"
                     "Please close the file in Excel and try again."
