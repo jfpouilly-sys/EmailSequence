@@ -14,8 +14,9 @@ followup_delays:
   - 3    # Days after initial send for followup_1
   - 7    # Days after initial send for followup_2
   - 14   # Days after initial send for followup_3
+  - 21   # Days after initial send for followup_4
 
-max_followups: 3   # Stop after this many follow-ups
+max_followups: 4   # Stop after this many follow-ups (extended to 4)
 
 # Reply detection
 inbox_scan_days: 30          # How far back to scan inbox
@@ -29,3 +30,6 @@ dry_run: false               # If true, display emails but don't send
 default_send_mode: "send"    # "send" (immediate), "msg_file" (save as .msg), or "defer" (delay)
 msg_output_folder: "msg_files"  # Folder for saving .msg files
 default_defer_hours: 1       # Hours to defer when using "defer" mode
+
+# Campaign ID tracking
+campaign_id_state_file: "campaign_id_state.json"  # Tracks unique email IDs (Lxxxxxx-y format)

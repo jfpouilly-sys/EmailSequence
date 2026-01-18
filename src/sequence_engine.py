@@ -9,6 +9,7 @@ from .config import Config
 from .contact_tracker import ContactTracker
 from .outlook_manager import OutlookManager
 from .template_engine import TemplateEngine
+from .campaign_id import CampaignIDGenerator
 
 
 class SequenceEngine:
@@ -17,7 +18,7 @@ class SequenceEngine:
     def __init__(self, config: Config):
         """
         Initialize with config.
-        Create instances of ContactTracker, OutlookManager, TemplateEngine.
+        Create instances of ContactTracker, OutlookManager, TemplateEngine, CampaignIDGenerator.
         Set up logging to config.log_file.
 
         Args:
@@ -29,6 +30,7 @@ class SequenceEngine:
         self.tracker = ContactTracker(config.contacts_file)
         self.outlook = OutlookManager()
         self.template_engine = TemplateEngine(config.templates_folder)
+        self.campaign_id_gen = CampaignIDGenerator(config.campaign_id_state_file)
 
         # Set up logging
         self._setup_logging()
@@ -86,6 +88,10 @@ class SequenceEngine:
 
         for _, contact in pending.iterrows():
             try:
+                # Generate campaign ID for this email (sequence 1 = initial)
+                campaign_id = self.campaign_id_gen.generate_email_id(sequence_number=1)
+                subject_with_id = f"{self.config.default_subject} [{campaign_id}]"
+
                 # Render email template
                 html_body = self.template_engine.render(
                     'initial',
@@ -96,7 +102,7 @@ class SequenceEngine:
                 # Send email with configured send mode
                 result = self.outlook.send_email(
                     to=contact['email'],
-                    subject=self.config.default_subject,
+                    subject=subject_with_id,
                     html_body=html_body,
                     dry_run=self.config.dry_run,
                     send_mode=self.config.default_send_mode,
@@ -112,7 +118,8 @@ class SequenceEngine:
                         'initial_sent_date': result['sent_time'],
                         'last_contact_date': result['sent_time'],
                         'followup_count': 0,
-                        'conversation_id': result['conversation_id']
+                        'conversation_id': result['conversation_id'],
+                        'notes': f"Campaign ID: {campaign_id}"
                     }
 
                     self.tracker.update_contact(contact['email'], updates)
@@ -266,6 +273,11 @@ class SequenceEngine:
                 # Determine template name
                 template_name = f"followup_{next_followup}"
 
+                # Generate campaign ID (sequence: 2=followup_1, 3=followup_2, 4=followup_3, 5=followup_4)
+                sequence_number = next_followup + 1  # Convert to sequence number
+                campaign_id = self.campaign_id_gen.generate_email_id(sequence_number=sequence_number)
+                subject_with_id = f"{self.config.default_subject} [{campaign_id}]"
+
                 # Render email template
                 html_body = self.template_engine.render(
                     template_name,
@@ -273,10 +285,10 @@ class SequenceEngine:
                     self.config.sender_name
                 )
 
-                # Send email with SAME subject line to maintain thread
+                # Send email with SAME subject line (but with new campaign ID) to maintain thread
                 result = self.outlook.send_email(
                     to=contact['email'],
-                    subject=self.config.default_subject,
+                    subject=subject_with_id,
                     html_body=html_body,
                     dry_run=self.config.dry_run,
                     send_mode=self.config.default_send_mode,
@@ -376,6 +388,7 @@ class SequenceEngine:
             'followup_1': 0,
             'followup_2': 0,
             'followup_3': 0,
+            'followup_4': 0,
             'replied': 0,
             'bounced': 0,
             'completed': 0,
@@ -393,6 +406,7 @@ class SequenceEngine:
             by_status['followup_1'] +
             by_status['followup_2'] +
             by_status['followup_3'] +
+            by_status['followup_4'] +
             by_status['replied'] +
             by_status['completed']
         )

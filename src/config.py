@@ -130,3 +130,8 @@ class Config:
         if not isinstance(hours, int) or hours < 0:
             return 1
         return hours
+
+    @property
+    def campaign_id_state_file(self) -> str:
+        """File for tracking campaign ID state."""
+        return self._get('campaign_id_state_file', 'campaign_id_state.json')

@@ -4,10 +4,12 @@ A Python-based email sequence automation system for Windows 11 that sends person
 
 ## Features
 
-- **Automated Email Sequences**: Send initial emails and up to 3 follow-ups automatically
+- **Automated Email Sequences**: Send initial emails and up to 4 follow-ups automatically (5 total emails)
+- **Unique Email IDs**: Each email gets a unique tracking ID (Lxxxxxx-y format) appended to subject line
+- **Multi-Campaign Management**: Manage multiple campaigns with isolated folders, contacts, and templates
 - **Reply Tracking**: Scans Outlook inbox to detect replies and update contact status
 - **Excel-Based Contact Management**: Simple contact database using Excel
-- **Flexible Contact Status**: Add contacts with any status (pending, sent, followup_1, etc.)
+- **Flexible Contact Status**: Add contacts with any status (pending, sent, followup_1-4, etc.)
 - **Multiple Email Sending Options**:
   - Send emails immediately via Outlook
   - Save emails as .msg files in a designated folder for manual review/sending
@@ -15,6 +17,7 @@ A Python-based email sequence automation system for Windows 11 that sends person
 - **Template System**: Customizable HTML email templates with personalization
 - **Dry Run Mode**: Test your sequences without actually sending emails
 - **Task Scheduler Integration**: Run automated cycles to check replies and send follow-ups
+- **Comprehensive Logging**: Detailed logs of all file operations, API calls, and email activities
 
 ## Requirements
 
@@ -81,6 +84,9 @@ followup_delays:
   - 3    # Days after initial send for followup_1
   - 7    # Days after initial send for followup_2
   - 14   # Days after initial send for followup_3
+  - 21   # Days after initial send for followup_4
+
+max_followups: 4   # Now supports 4 follow-ups (5 total emails)
 
 # Safety settings
 send_delay_seconds: 5        # Pause between emails
@@ -90,6 +96,29 @@ dry_run: false               # Set to true for testing
 default_send_mode: "send"    # "send", "msg_file", or "defer"
 msg_output_folder: "msg_files"  # Folder for .msg files
 default_defer_hours: 1       # Hours to defer when using defer mode
+
+# Campaign ID tracking
+campaign_id_state_file: "campaign_id_state.json"  # Tracks unique email IDs
+```
+
+## Unique Email ID System
+
+Each email sent by the system receives a unique tracking ID in the format **Lxxxxxx-y**:
+- **L**: Literal prefix
+- **xxxxxx**: 6-digit sequential number (000001 to 999999, supports 2 years of campaigns)
+- **y**: Email sequence number (1=initial, 2=followup_1, 3=followup_2, 4=followup_3, 5=followup_4)
+
+**Example IDs:**
+- `L000123-1` - Initial email, 123rd email sent
+- `L000124-2` - Follow-up 1, 124th email sent
+- `L000125-5` - Follow-up 4, 125th email sent
+
+The ID is automatically appended to the email subject line: `Your Subject [L000123-1]`
+
+This allows for:
+- Unique tracking of each email
+- Easy identification of which email in the sequence
+- Campaign analytics and monitoring
 ```
 
 ## Email Sending Options

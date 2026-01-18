@@ -18,7 +18,7 @@ class ContactsFrame(ctk.CTkFrame):
     SYSTEM_FIELDS = ['title', 'first_name', 'last_name', 'email', 'company', 'status']
 
     STATUS_OPTIONS = ['All Statuses', 'pending', 'sent', 'followup_1', 'followup_2',
-                      'followup_3', 'replied', 'bounced', 'opted_out', 'completed']
+                      'followup_3', 'followup_4', 'replied', 'bounced', 'opted_out', 'completed']
 
     def __init__(self, parent, app):
         """Initialize contacts frame.
@@ -236,7 +236,7 @@ class ContactsFrame(ctk.CTkFrame):
         status_menu = ctk.CTkOptionMenu(
             detail_frame,
             variable=self.status_var,
-            values=['pending', 'sent', 'followup_1', 'followup_2', 'followup_3',
+            values=['pending', 'sent', 'followup_1', 'followup_2', 'followup_3', 'followup_4',
                    'replied', 'bounced', 'opted_out', 'completed'],
             width=150
         )
@@ -516,7 +516,7 @@ class ContactsFrame(ctk.CTkFrame):
         status = self.selected_contact.get('status', 'pending')
         if status == 'pending':
             template = 'initial'
-        elif status in ['sent', 'followup_1', 'followup_2', 'followup_3']:
+        elif status in ['sent', 'followup_1', 'followup_2', 'followup_3', 'followup_4']:
             # Determine next followup
             followup_count = self.selected_contact.get('followup_count', 0)
             if followup_count == 0:
@@ -525,6 +525,8 @@ class ContactsFrame(ctk.CTkFrame):
                 template = 'followup_2'
             elif followup_count == 2:
                 template = 'followup_3'
+            elif followup_count == 3:
+                template = 'followup_4'
             else:
                 template = 'initial'
         else:
