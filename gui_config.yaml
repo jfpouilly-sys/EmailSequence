@@ -1,0 +1,30 @@
+# GUI Configuration for Email Sequence Manager
+# This file controls the GUI appearance, behavior, and paths
+
+# Paths (configurable by user)
+paths:
+  project_folder: "/home/user/EmailSequence"  # Root folder
+  python_executable: "python3"                # Or full path to python executable
+  config_file: "config.yaml"                  # Relative to project_folder
+  contacts_file: "contacts.xlsx"              # Relative to project_folder
+  templates_folder: "templates"               # Relative to project_folder
+  logs_folder: "logs"                         # Relative to project_folder
+
+# GUI appearance
+appearance:
+  theme: "dark"                # "dark", "light", or "system"
+  color_scheme: "blue"         # "blue", "green", "dark-blue"
+  window_width: 1200
+  window_height: 800
+  sidebar_width: 200
+
+# Behavior
+behavior:
+  auto_refresh_seconds: 30     # Dashboard auto-refresh interval
+  confirm_before_send: true    # Show confirmation dialog before sending
+  show_notifications: true     # System notifications
+  minimize_to_tray: true       # Minimize to system tray instead of taskbar
+  start_minimized: false       # Start application minimized
+
+# Recent files (auto-populated)
+recent_projects: []
