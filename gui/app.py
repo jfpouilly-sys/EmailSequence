@@ -12,6 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gui.config import GUIConfig
+from src.campaign_manager import CampaignManager
 
 
 class MainApp(ctk.CTk):
@@ -27,6 +28,10 @@ class MainApp(ctk.CTk):
 
         # Load configuration
         self.gui_config = GUIConfig(config_path)
+
+        # Initialize campaign manager
+        self.campaign_mgr = CampaignManager()
+        self.active_campaign = self.campaign_mgr.get_active_campaign()
 
         # Set up window
         self.title("Email Sequence Manager")
@@ -67,7 +72,7 @@ class MainApp(ctk.CTk):
         # Sidebar frame
         self.sidebar = ctk.CTkFrame(self, width=sidebar_width, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(7, weight=1)  # Spacer row
+        self.sidebar.grid_rowconfigure(8, weight=1)  # Spacer row
 
         # Logo/Title
         logo_label = ctk.CTkLabel(
@@ -76,7 +81,46 @@ class MainApp(ctk.CTk):
             font=("Arial Bold", 16),
             text_color="#3B82F6"
         )
-        logo_label.grid(row=0, column=0, pady=(20, 30), padx=20)
+        logo_label.grid(row=0, column=0, pady=(20, 10), padx=20)
+
+        # Campaign selector
+        campaign_label = ctk.CTkLabel(
+            self.sidebar,
+            text="Active Campaign:",
+            font=("Arial", 10),
+            text_color="gray",
+            anchor="w"
+        )
+        campaign_label.grid(row=0, column=0, pady=(70, 0), padx=20, sticky="sw")
+
+        # Get campaigns for dropdown
+        campaigns = self.campaign_mgr.list_campaigns()
+        campaign_names = [c.name for c in campaigns] if campaigns else ["(No campaigns)"]
+
+        # Set initial value
+        initial_campaign = self.active_campaign if self.active_campaign else "(No campaigns)"
+        if initial_campaign not in campaign_names and campaign_names != ["(No campaigns)"]:
+            initial_campaign = campaign_names[0] if campaign_names else "(No campaigns)"
+
+        from tkinter import StringVar
+        self.campaign_var = StringVar(value=initial_campaign)
+
+        self.campaign_selector = ctk.CTkOptionMenu(
+            self.sidebar,
+            variable=self.campaign_var,
+            values=campaign_names,
+            command=self.on_campaign_changed,
+            width=sidebar_width - 40,
+            font=("Arial", 11),
+            fg_color="#1F2937",
+            button_color="#3B82F6",
+            button_hover_color="#2563EB"
+        )
+        self.campaign_selector.grid(row=0, column=0, pady=(90, 0), padx=20, sticky="sw")
+
+        # Separator
+        separator = ctk.CTkFrame(self.sidebar, height=2, fg_color="gray")
+        separator.grid(row=0, column=0, pady=(130, 0), padx=20, sticky="sew")
 
         # Navigation buttons
         self.nav_buttons = {}
@@ -86,8 +130,9 @@ class MainApp(ctk.CTk):
             ("contacts", "👥 Contacts", 2),
             ("sequence", "▶️  Sequence", 3),
             ("templates", "📝 Templates", 4),
-            ("logs", "📋 Logs", 5),
-            ("settings", "⚙️  Settings", 6),
+            ("campaigns", "📁 Campaigns", 5),
+            ("logs", "📋 Logs", 6),
+            ("settings", "⚙️  Settings", 7),
         ]
 
         for frame_name, label, row in nav_items:
@@ -113,7 +158,7 @@ class MainApp(ctk.CTk):
             font=("Arial", 9),
             text_color="gray"
         )
-        version_label.grid(row=8, column=0, pady=(0, 10))
+        version_label.grid(row=9, column=0, pady=(0, 10))
 
     def create_content_area(self) -> None:
         """Create main content area container."""
@@ -181,6 +226,9 @@ class MainApp(ctk.CTk):
             elif frame_name == "templates":
                 from gui.frames.templates import TemplatesFrame
                 self.current_frame = TemplatesFrame(self.content_container, self)
+            elif frame_name == "campaigns":
+                from gui.frames.campaigns import CampaignsFrame
+                self.current_frame = CampaignsFrame(self.content_container, self)
             elif frame_name == "logs":
                 from gui.frames.logs import LogsFrame
                 self.current_frame = LogsFrame(self.content_container, self)
@@ -286,6 +334,49 @@ class MainApp(ctk.CTk):
         current = self.current_frame_name
         self.current_frame_name = ""  # Force reload
         self.navigate_to(current)
+
+    def on_campaign_changed(self, campaign_name: str) -> None:
+        """Handle campaign selection change.
+
+        Args:
+            campaign_name: Name of selected campaign
+        """
+        if campaign_name == "(No campaigns)":
+            return
+
+        # Set as active campaign
+        success = self.campaign_mgr.set_active_campaign(campaign_name)
+
+        if success:
+            self.active_campaign = campaign_name
+            self.update_status_bar(message=f"Switched to campaign: {campaign_name}")
+
+            # Reload current frame to use new campaign
+            self.reload_frame()
+        else:
+            self.update_status_bar(message=f"Failed to switch to campaign: {campaign_name}")
+
+    def reload_active_campaign(self) -> None:
+        """Reload campaign selector with current campaigns."""
+        # Get updated list of campaigns
+        campaigns = self.campaign_mgr.list_campaigns()
+        campaign_names = [c.name for c in campaigns] if campaigns else ["(No campaigns)"]
+
+        # Update dropdown values
+        self.campaign_selector.configure(values=campaign_names)
+
+        # Update active campaign
+        self.active_campaign = self.campaign_mgr.get_active_campaign()
+
+        if self.active_campaign and self.active_campaign in campaign_names:
+            self.campaign_var.set(self.active_campaign)
+        elif campaign_names and campaign_names[0] != "(No campaigns)":
+            self.campaign_var.set(campaign_names[0])
+        else:
+            self.campaign_var.set("(No campaigns)")
+
+        # Reload current frame
+        self.reload_frame()
 
 
 def main():

@@ -386,3 +386,129 @@ campaign_id_state_file: "campaign_id_state.json"  # Tracks unique email IDs
 
         self.logger.info(f"[CAMPAIGNS] Set active campaign: {campaign_name}")
         return True
+
+    def export_campaign(self, campaign_name: str, output_file: str) -> bool:
+        """
+        Export campaign to ZIP file.
+
+        Args:
+            campaign_name: Name of campaign to export
+            output_file: Path to output ZIP file
+
+        Returns:
+            True if successful, False otherwise
+        """
+        campaign = self.get_campaign(campaign_name)
+        if not campaign or not campaign.exists():
+            self.logger.error(f"[CAMPAIGNS] Campaign not found for export: {campaign_name}")
+            return False
+
+        try:
+            self.logger.info(f"[CAMPAIGNS] Exporting campaign '{campaign_name}' to {output_file}")
+
+            import zipfile
+
+            with zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Add all files from campaign folder
+                for file_path in campaign.folder_path.rglob('*'):
+                    if file_path.is_file():
+                        # Calculate relative path within campaign folder
+                        rel_path = file_path.relative_to(campaign.folder_path)
+                        zipf.write(file_path, arcname=rel_path)
+                        self.logger.debug(f"[CAMPAIGNS] Added to ZIP: {rel_path}")
+
+            self.logger.info(f"[CAMPAIGNS] Successfully exported campaign to {output_file}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"[CAMPAIGNS] Failed to export campaign: {str(e)}")
+            return False
+
+    def import_campaign(self, zip_file: str, campaign_name: Optional[str] = None) -> bool:
+        """
+        Import campaign from ZIP file.
+
+        Args:
+            zip_file: Path to ZIP file
+            campaign_name: Optional name for imported campaign (auto-generated if not provided)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.logger.info(f"[CAMPAIGNS] Importing campaign from {zip_file}")
+
+            import zipfile
+
+            # If no name provided, use ZIP filename
+            if not campaign_name:
+                campaign_name = Path(zip_file).stem
+                # Make unique if already exists
+                base_name = campaign_name
+                counter = 1
+                while self.get_campaign(campaign_name):
+                    campaign_name = f"{base_name}_{counter}"
+                    counter += 1
+
+            # Create campaign folder
+            campaign_folder = self.campaigns_root / campaign_name
+
+            if campaign_folder.exists():
+                self.logger.error(f"[CAMPAIGNS] Campaign folder already exists: {campaign_folder}")
+                return False
+
+            campaign_folder.mkdir(parents=True)
+            self.logger.info(f"[CAMPAIGNS] Created campaign folder: {campaign_folder}")
+
+            # Extract ZIP contents
+            with zipfile.ZipFile(zip_file, 'r') as zipf:
+                zipf.extractall(campaign_folder)
+                self.logger.info(f"[CAMPAIGNS] Extracted {len(zipf.namelist())} files")
+
+            self.logger.info(f"[CAMPAIGNS] Successfully imported campaign '{campaign_name}'")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"[CAMPAIGNS] Failed to import campaign: {str(e)}")
+            # Clean up partial import
+            if campaign_folder and campaign_folder.exists():
+                shutil.rmtree(campaign_folder)
+            return False
+
+    def copy_template_from_library(
+        self,
+        campaign_name: str,
+        template_name: str,
+        library_path: str = "templates_library"
+    ) -> bool:
+        """
+        Copy template from shared library to campaign.
+
+        Args:
+            campaign_name: Target campaign name
+            template_name: Template filename
+            library_path: Path to templates library
+
+        Returns:
+            True if successful, False otherwise
+        """
+        campaign = self.get_campaign(campaign_name)
+        if not campaign or not campaign.exists():
+            self.logger.error(f"[CAMPAIGNS] Campaign not found: {campaign_name}")
+            return False
+
+        try:
+            source = Path(library_path) / template_name
+            dest = campaign.get_templates_path() / template_name
+
+            if not source.exists():
+                self.logger.error(f"[CAMPAIGNS] Template not found in library: {template_name}")
+                return False
+
+            shutil.copy2(source, dest)
+            self.logger.info(f"[CAMPAIGNS] Copied template '{template_name}' to campaign '{campaign_name}'")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"[CAMPAIGNS] Failed to copy template: {str(e)}")
+            return False

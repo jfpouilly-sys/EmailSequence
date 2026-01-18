@@ -354,6 +354,137 @@ pip install --upgrade -r requirements.txt
 6. **Backup contacts**: Keep a backup of `contacts.xlsx`
 7. **Professional tone**: Keep emails professional and respectful
 
+## Graphical User Interface (GUI)
+
+The system includes a modern GUI for managing campaigns, contacts, templates, and email sequences.
+
+### Starting the GUI
+
+```bash
+python gui_app.py
+```
+
+### GUI Features
+
+#### 1. Dashboard
+- Overview of active campaign and email sequence statistics
+- Quick access to common operations
+- Real-time status updates
+
+#### 2. Contacts Management
+- View and edit contacts in a searchable, filterable table
+- Add new contacts with custom status selection
+- Import contacts from CSV with column mapping
+- Filter contacts by status (pending, sent, followup_1-4, replied, etc.)
+- Send individual emails with custom sending options
+
+#### 3. Sequence Control
+- Start/stop email sequences
+- Send initial emails and follow-ups
+- Check for replies
+- Run full cycles (check + followup)
+- Override default sending mode per operation
+
+#### 4. Templates Editor
+- View and edit all email templates
+- Live HTML preview
+- Syntax highlighting
+- Template validation
+- Access to templates library
+
+#### 5. **Campaign Management** ⭐
+Complete campaign lifecycle management with:
+
+**Campaign Features:**
+- **Create New Campaigns**: Set up isolated campaigns with unique contacts and templates
+- **Switch Active Campaign**: Easily switch between different campaigns using the dropdown selector
+- **Import/Export Campaigns**: Share campaigns via ZIP files
+- **Template Library**: Shared template repository accessible to all campaigns
+
+**Campaign Structure:**
+Each campaign has its own isolated folder:
+```
+campaigns/
+├── My_Campaign_1/
+│   ├── contacts.xlsx          # Campaign-specific contacts
+│   ├── templates/             # Campaign-specific templates
+│   │   ├── initial.html
+│   │   ├── followup_1.html
+│   │   ├── followup_2.html
+│   │   ├── followup_3.html
+│   │   └── followup_4.html
+│   ├── logs/                  # Campaign-specific logs
+│   ├── campaign_config.yaml   # Campaign configuration
+│   └── campaign_id_state.json # Email ID tracking
+├── My_Campaign_2/
+│   └── ...
+└── campaigns_state.json       # Active campaign tracker
+```
+
+**Creating a Campaign:**
+1. Navigate to "Campaigns" tab in GUI
+2. Click "+ New Campaign"
+3. Enter campaign details:
+   - Campaign name
+   - Sender name
+   - Default subject line
+   - Optionally copy templates from existing campaign
+4. Campaign folder is automatically created with all necessary files
+
+**Switching Campaigns:**
+Use the dropdown selector in the sidebar to switch between campaigns. All frames (Contacts, Sequence, Templates) will automatically use the active campaign's data.
+
+**Import/Export:**
+- **Export**: Select campaign → Export to ZIP file (includes all contacts, templates, and config)
+- **Import**: Import ZIP file → Automatically extracts to new campaign folder
+
+**Templates Library:**
+- Shared folder (`templates_library/`) for reusable templates
+- Browse library from Campaigns tab
+- Add new templates to library
+- Copy templates from library to any campaign
+- Great for maintaining standard templates across multiple campaigns
+
+#### 6. Logs Viewer
+- Real-time log viewing with filtering
+- Search logs by keyword or operation type
+- Export logs to file
+- Clear old logs
+
+#### 7. Settings
+- Configure email sending options
+- Adjust sequence timing
+- Set reply detection parameters
+- Customize GUI appearance
+- Edit configuration files
+
+### Email Sending Options in GUI
+
+When sending emails through the GUI, you can choose between three modes:
+
+1. **Send Immediately**: Email is sent right away via Outlook
+2. **Save as .msg File**: Email is saved for manual review/sending later
+3. **Defer Send**: Email is scheduled to send after X hours
+
+These options override the default sending mode configured in `config.yaml`.
+
+### Campaign Selector
+
+The **Active Campaign** dropdown in the sidebar shows:
+- Currently active campaign name
+- List of all available campaigns
+- Quick switching between campaigns
+
+When you switch campaigns, all data (contacts, templates, sequences) automatically updates to use the new campaign's resources.
+
+### Keyboard Shortcuts
+
+- `Ctrl+N`: New contact
+- `Ctrl+S`: Save changes
+- `Ctrl+F`: Search/filter
+- `Ctrl+R`: Refresh current view
+- `F5`: Run sequence cycle
+
 ## Logging
 
 The application provides **comprehensive logging** of all operations. All activity is logged to `logs/sequence.log`.
