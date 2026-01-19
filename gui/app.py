@@ -109,7 +109,7 @@ class MainApp(ctk.CTk):
         # Version label at bottom
         version_label = ctk.CTkLabel(
             self.sidebar,
-            text="v1.0.0",
+            text="v1.0.0-20260119",
             font=("Arial", 9),
             text_color="gray"
         )
