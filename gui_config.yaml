@@ -1,14 +1,16 @@
 # GUI Configuration for Email Sequence Manager
 # This file controls the GUI appearance, behavior, and paths
 
+# Campaigns (campaign-based organization)
+campaigns:
+  base_folder: "campaigns"          # Folder containing all campaigns
+  current_campaign: null             # Currently selected campaign (null = not selected)
+
 # Paths (configurable by user)
 paths:
   project_folder: "/home/user/EmailSequence"  # Root folder
   python_executable: "python3"                # Or full path to python executable
-  config_file: "config.yaml"                  # Relative to project_folder
-  contacts_file: "contacts.xlsx"              # Relative to project_folder
-  templates_folder: "templates"               # Relative to project_folder
-  logs_folder: "logs"                         # Relative to project_folder
+  logs_folder: "logs"                         # Centralized logs folder (in project root)
 
 # GUI appearance
 appearance:
@@ -25,6 +27,7 @@ behavior:
   show_notifications: true     # System notifications
   minimize_to_tray: true       # Minimize to system tray instead of taskbar
   start_minimized: false       # Start application minimized
+  show_campaign_on_startup: true  # Show campaign selector on startup if no campaign selected
 
-# Recent files (auto-populated)
-recent_projects: []
+# Recent campaigns (auto-populated)
+recent_campaigns: []

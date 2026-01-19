@@ -348,7 +348,7 @@ class ContactsFrame(ctk.CTkFrame):
             search: Search string
         """
         try:
-            contacts_file = self.gui_config.get_absolute_path('contacts_file')
+            contacts_file = self.gui_config.get_campaign_contacts_file()
 
             if not contacts_file.exists():
                 # Create empty DataFrame with required columns
@@ -466,7 +466,7 @@ class ContactsFrame(ctk.CTkFrame):
                 ], ignore_index=True)
 
             # Save to file
-            contacts_file = self.gui_config.get_absolute_path('contacts_file')
+            contacts_file = self.gui_config.get_campaign_contacts_file()
             self.contacts_df.to_excel(contacts_file, index=False)
 
             # Reload table
@@ -595,7 +595,7 @@ class ContactsFrame(ctk.CTkFrame):
             self.contacts_df = self.contacts_df[~self.contacts_df['email'].isin(selected)]
 
             # Save to file
-            contacts_file = self.gui_config.get_absolute_path('contacts_file')
+            contacts_file = self.gui_config.get_campaign_contacts_file()
             self.contacts_df.to_excel(contacts_file, index=False)
 
             # Clear selection and reload
@@ -649,7 +649,7 @@ class ContactsFrame(ctk.CTkFrame):
             self.contacts_df = self.contacts_df.drop_duplicates(subset=['email'], keep='first')
 
             # Save to file
-            contacts_file = self.gui_config.get_absolute_path('contacts_file')
+            contacts_file = self.gui_config.get_campaign_contacts_file()
             self.contacts_df.to_excel(contacts_file, index=False)
 
             # Reload

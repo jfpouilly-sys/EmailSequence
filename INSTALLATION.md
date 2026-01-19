@@ -473,7 +473,7 @@ pip uninstall customtkinter Pillow pandas openpyxl PyYAML pywin32
 
 ## Version Information
 
-- Application Version: 1.0.0
+- Application Version: 1.0.0-20260119
 - Python Minimum: 3.8
 - Recommended Python: 3.11+
-- Last Updated: 2026-01-17
+- Last Updated: 2026-01-19

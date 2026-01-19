@@ -1253,7 +1253,7 @@ When reporting issues:
 
 ## Version Information
 
-- Manual Version: 1.0
-- Application Version: 1.0.0
-- Last Updated: 2026-01-17
-- Compatible With: Email Sequence Manager GUI 1.0.0
+- Manual Version: 1.0.0-20260119
+- Application Version: 1.0.0-20260119
+- Last Updated: 2026-01-19
+- Compatible With: Email Sequence Manager GUI 1.0.0-20260119

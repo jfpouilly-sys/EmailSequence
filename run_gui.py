@@ -2,7 +2,11 @@
 """Email Sequence Manager - GUI Entry Point
 
 Launch the graphical user interface for the Email Sequence Manager.
+
+Version: 1.0.0-20260119
 """
+
+__version__ = "1.0.0-20260119"
 
 import sys
 import os

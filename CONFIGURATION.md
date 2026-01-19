@@ -690,6 +690,6 @@ project_folder: "C:\EmailSequence"  # Backslashes need escaping
 
 ## Version Information
 
-- Configuration Version: 1.0
-- Last Updated: 2026-01-17
-- Compatible with: Email Sequence Manager 1.0.0
+- Configuration Version: 1.0.0-20260119
+- Last Updated: 2026-01-19
+- Compatible with: Email Sequence Manager 1.0.0-20260119

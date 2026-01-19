@@ -247,14 +247,24 @@ class DashboardFrame(ctk.CTkScrollableFrame):
         self.load_activity()
 
     def get_metrics(self) -> dict:
-        """Get dashboard metrics from contacts file.
+        """Get dashboard metrics from campaign contacts file.
 
         Returns:
             Dictionary with metric values
         """
         try:
-            # Try to load contacts and calculate metrics
-            contacts_file = self.gui_config.get_absolute_path('contacts_file')
+            # Check if campaign is selected
+            current_campaign = self.gui_config.get_current_campaign()
+            if not current_campaign:
+                return {
+                    'pending': 0,
+                    'sent': 0,
+                    'replied': 0,
+                    'reply_rate': 0
+                }
+
+            # Load campaign contacts and calculate metrics
+            contacts_file = self.gui_config.get_campaign_contacts_file()
 
             if contacts_file.exists():
                 import pandas as pd
@@ -301,12 +311,12 @@ class DashboardFrame(ctk.CTkScrollableFrame):
         }
 
     def load_activity(self) -> None:
-        """Load recent activity from logs."""
+        """Load recent activity from centralized logs."""
         self.activity_text.delete("1.0", "end")
 
         try:
-            # Read log file
-            logs_folder = self.gui_config.get_absolute_path('logs_folder')
+            # Read centralized log file
+            logs_folder = self.gui_config.get_logs_path()
             log_file = logs_folder / 'sequence.log'
 
             if log_file.exists():

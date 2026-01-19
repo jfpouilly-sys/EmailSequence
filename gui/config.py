@@ -13,12 +13,13 @@ class GUIConfig:
     """Manages GUI configuration with defaults and validation."""
 
     DEFAULT_CONFIG = {
+        'campaigns': {
+            'base_folder': 'campaigns',
+            'current_campaign': None
+        },
         'paths': {
             'project_folder': os.getcwd(),
             'python_executable': 'python3',
-            'config_file': 'config.yaml',
-            'contacts_file': 'contacts.xlsx',
-            'templates_folder': 'templates',
             'logs_folder': 'logs'
         },
         'appearance': {
@@ -33,9 +34,10 @@ class GUIConfig:
             'confirm_before_send': True,
             'show_notifications': True,
             'minimize_to_tray': True,
-            'start_minimized': False
+            'start_minimized': False,
+            'show_campaign_on_startup': True
         },
-        'recent_projects': []
+        'recent_campaigns': []
     }
 
     def __init__(self, config_path: str = "gui_config.yaml"):
@@ -208,4 +210,124 @@ class GUIConfig:
     def reset_to_defaults(self) -> None:
         """Reset configuration to default values."""
         self.config = self.DEFAULT_CONFIG.copy()
+        self.save()
+
+    # Campaign-specific methods
+
+    def get_current_campaign(self) -> Optional[str]:
+        """Get currently selected campaign name.
+
+        Returns:
+            Campaign name or None
+        """
+        return self.get('campaigns.current_campaign')
+
+    def set_current_campaign(self, campaign_name: Optional[str]) -> None:
+        """Set current campaign.
+
+        Args:
+            campaign_name: Campaign name or None
+        """
+        self.set('campaigns.current_campaign', campaign_name)
+        self.save()
+
+    def get_campaigns_base_path(self) -> Path:
+        """Get campaigns base directory path.
+
+        Returns:
+            Absolute Path to campaigns directory
+        """
+        project_folder = Path(self.get('paths.project_folder', os.getcwd()))
+        base_folder = self.get('campaigns.base_folder', 'campaigns')
+        return project_folder / base_folder
+
+    def get_campaign_path(self, campaign_name: str) -> Path:
+        """Get path to specific campaign directory.
+
+        Args:
+            campaign_name: Campaign name
+
+        Returns:
+            Absolute Path to campaign directory
+        """
+        return self.get_campaigns_base_path() / campaign_name
+
+    def get_campaign_contacts_file(self, campaign_name: Optional[str] = None) -> Path:
+        """Get path to campaign contacts file.
+
+        Args:
+            campaign_name: Campaign name (uses current if None)
+
+        Returns:
+            Absolute Path to contacts.xlsx
+        """
+        if campaign_name is None:
+            campaign_name = self.get_current_campaign()
+        
+        if campaign_name is None:
+            raise ValueError("No campaign selected")
+
+        return self.get_campaign_path(campaign_name) / "contacts.xlsx"
+
+    def get_campaign_templates_path(self, campaign_name: Optional[str] = None) -> Path:
+        """Get path to campaign templates directory.
+
+        Args:
+            campaign_name: Campaign name (uses current if None)
+
+        Returns:
+            Absolute Path to templates directory
+        """
+        if campaign_name is None:
+            campaign_name = self.get_current_campaign()
+        
+        if campaign_name is None:
+            raise ValueError("No campaign selected")
+
+        return self.get_campaign_path(campaign_name) / "templates"
+
+    def get_campaign_config_file(self, campaign_name: Optional[str] = None) -> Path:
+        """Get path to campaign configuration file.
+
+        Args:
+            campaign_name: Campaign name (uses current if None)
+
+        Returns:
+            Absolute Path to campaign_config.yaml
+        """
+        if campaign_name is None:
+            campaign_name = self.get_current_campaign()
+        
+        if campaign_name is None:
+            raise ValueError("No campaign selected")
+
+        return self.get_campaign_path(campaign_name) / "campaign_config.yaml"
+
+    def get_logs_path(self) -> Path:
+        """Get centralized logs directory path.
+
+        Returns:
+            Absolute Path to logs directory
+        """
+        project_folder = Path(self.get('paths.project_folder', os.getcwd()))
+        logs_folder = self.get('paths.logs_folder', 'logs')
+        return project_folder / logs_folder
+
+    def add_recent_campaign(self, campaign_name: str) -> None:
+        """Add campaign to recent campaigns list.
+
+        Args:
+            campaign_name: Campaign name
+        """
+        recent = self.get('recent_campaigns', [])
+
+        # Remove if already exists
+        if campaign_name in recent:
+            recent.remove(campaign_name)
+
+        # Add to front
+        recent.insert(0, campaign_name)
+
+        # Keep only last 10
+        self.config['recent_campaigns'] = recent[:10]
         self.save()

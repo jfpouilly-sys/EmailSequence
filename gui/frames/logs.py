@@ -207,7 +207,7 @@ class LogsFrame(ctk.CTkFrame):
         self.all_logs = []
 
         try:
-            logs_folder = self.gui_config.get_absolute_path('logs_folder')
+            logs_folder = self.gui_config.get_logs_path()
             log_file = logs_folder / 'sequence.log'
 
             if log_file.exists():
@@ -355,7 +355,7 @@ class LogsFrame(ctk.CTkFrame):
     def on_open_folder(self) -> None:
         """Handle Open Folder button."""
         try:
-            logs_folder = self.gui_config.get_absolute_path('logs_folder')
+            logs_folder = self.gui_config.get_logs_path()
 
             if not logs_folder.exists():
                 logs_folder.mkdir(parents=True, exist_ok=True)
@@ -384,7 +384,7 @@ class LogsFrame(ctk.CTkFrame):
             return
 
         try:
-            logs_folder = self.gui_config.get_absolute_path('logs_folder')
+            logs_folder = self.gui_config.get_logs_path()
             log_file = logs_folder / 'sequence.log'
 
             if log_file.exists():
