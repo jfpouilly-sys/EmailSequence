@@ -1,0 +1,35 @@
+# Email Sequence Configuration
+
+# Paths
+contacts_file: "contacts.xlsx"
+templates_folder: "templates"
+log_file: "logs/sequence.log"
+
+# Email settings
+sender_name: "Jean-François"           # Display name for From field
+default_subject: "Partnership Opportunity - ISIT"
+
+# Sequence timing (in days)
+followup_delays:
+  - 3    # Days after initial send for followup_1
+  - 7    # Days after initial send for followup_2
+  - 14   # Days after initial send for followup_3
+  - 21   # Days after initial send for followup_4
+
+max_followups: 4   # Stop after this many follow-ups (extended to 4)
+
+# Reply detection
+inbox_scan_days: 30          # How far back to scan inbox
+match_by: "conversation"     # "conversation" or "subject"
+
+# Safety settings
+send_delay_seconds: 5        # Pause between emails (avoid spam flags)
+dry_run: false               # If true, display emails but don't send
+
+# Email sending options
+default_send_mode: "send"    # "send" (immediate), "msg_file" (save as .msg), or "defer" (delay)
+msg_output_folder: "msg_files"  # Folder for saving .msg files
+default_defer_hours: 1       # Hours to defer when using "defer" mode
+
+# Campaign ID tracking
+campaign_id_state_file: "campaign_id_state.json"  # Tracks unique email IDs (Lxxxxxx-y format)

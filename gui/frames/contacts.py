@@ -18,7 +18,7 @@ class ContactsFrame(ctk.CTkFrame):
     SYSTEM_FIELDS = ['title', 'first_name', 'last_name', 'email', 'company', 'status']
 
     STATUS_OPTIONS = ['All Statuses', 'pending', 'sent', 'followup_1', 'followup_2',
-                      'followup_3', 'replied', 'bounced', 'opted_out', 'completed']
+                      'followup_3', 'followup_4', 'replied', 'bounced', 'opted_out', 'completed']
 
     def __init__(self, parent, app):
         """Initialize contacts frame.
@@ -228,20 +228,81 @@ class ContactsFrame(ctk.CTkFrame):
 
         row += 1
 
-        # Status display
-        status_label = ctk.CTkLabel(
-            detail_frame,
-            text="Status:",
-            font=("Arial", 11)
+        # Status dropdown (editable)
+        ctk.CTkLabel(detail_frame, text="Status:", font=("Arial", 11)).grid(
+            row=row, column=0, sticky="w", padx=(15, 5), pady=5
         )
-        status_label.grid(row=row, column=0, sticky="w", padx=(15, 5), pady=10)
+        self.status_var = ctk.StringVar(value='pending')
+        status_menu = ctk.CTkOptionMenu(
+            detail_frame,
+            variable=self.status_var,
+            values=['pending', 'sent', 'followup_1', 'followup_2', 'followup_3', 'followup_4',
+                   'replied', 'bounced', 'opted_out', 'completed'],
+            width=150
+        )
+        status_menu.grid(row=row, column=0, sticky="e", padx=5, pady=5)
 
-        self.status_badge = StatusBadge(detail_frame, status='pending', show_text=True)
-        self.status_badge.grid(row=row, column=0, sticky="e", padx=5, pady=10)
+        row += 1
+
+        # Email sending options section
+        ctk.CTkLabel(
+            detail_frame,
+            text="EMAIL ACTION:",
+            font=("Arial Bold", 12)
+        ).grid(row=row, column=0, columnspan=4, sticky="w", padx=15, pady=(15, 5))
+
+        row += 1
+
+        # Send mode radio buttons
+        self.send_mode_var = ctk.StringVar(value="send")
+
+        send_now_radio = ctk.CTkRadioButton(
+            detail_frame,
+            text="Send Now",
+            variable=self.send_mode_var,
+            value="send"
+        )
+        send_now_radio.grid(row=row, column=0, sticky="w", padx=(15, 5), pady=5)
+
+        msg_file_radio = ctk.CTkRadioButton(
+            detail_frame,
+            text="Save as .msg",
+            variable=self.send_mode_var,
+            value="msg_file"
+        )
+        msg_file_radio.grid(row=row, column=1, sticky="w", padx=5, pady=5)
+
+        defer_radio = ctk.CTkRadioButton(
+            detail_frame,
+            text="Defer Send",
+            variable=self.send_mode_var,
+            value="defer"
+        )
+        defer_radio.grid(row=row, column=2, sticky="w", padx=5, pady=5)
+
+        row += 1
+
+        # Defer hours input
+        ctk.CTkLabel(detail_frame, text="Defer hours:", font=("Arial", 11)).grid(
+            row=row, column=0, sticky="w", padx=(15, 5), pady=5
+        )
+        self.defer_hours_var = ctk.StringVar(value="1")
+        defer_entry = ctk.CTkEntry(detail_frame, textvariable=self.defer_hours_var, width=60)
+        defer_entry.grid(row=row, column=0, sticky="e", padx=5, pady=5)
+
+        # .msg folder path
+        ctk.CTkLabel(detail_frame, text=".msg folder:", font=("Arial", 11)).grid(
+            row=row, column=1, sticky="w", padx=(15, 5), pady=5
+        )
+        self.msg_folder_var = ctk.StringVar(value="msg_files")
+        msg_folder_entry = ctk.CTkEntry(detail_frame, textvariable=self.msg_folder_var, width=200)
+        msg_folder_entry.grid(row=row, column=1, columnspan=2, sticky="e", padx=5, pady=5)
+
+        row += 1
 
         # Buttons
         button_frame = ctk.CTkFrame(detail_frame, fg_color="transparent")
-        button_frame.grid(row=row, column=1, columnspan=3, sticky="e", padx=15, pady=10)
+        button_frame.grid(row=row, column=0, columnspan=4, sticky="e", padx=15, pady=10)
 
         save_btn = ctk.CTkButton(
             button_frame,
@@ -269,6 +330,15 @@ class ContactsFrame(ctk.CTkFrame):
             fg_color="#EF4444"
         )
         optout_btn.pack(side="left", padx=5)
+
+        send_email_btn = ctk.CTkButton(
+            button_frame,
+            text="📧 Send Email",
+            command=self.on_send_email,
+            width=120,
+            fg_color="#3B82F6"
+        )
+        send_email_btn.pack(side="left", padx=5)
 
     def load_contacts(self, filter_status: str = None, search: str = None) -> None:
         """Load contacts from Excel file.
@@ -334,7 +404,7 @@ class ContactsFrame(ctk.CTkFrame):
         self.company_var.set(contact.get('company', ''))
 
         status = contact.get('status', 'pending')
-        self.status_badge.update_status(status)
+        self.status_var.set(status)
 
     def on_filter_change(self, value: str) -> None:
         """Handle filter dropdown change.
@@ -363,7 +433,7 @@ class ContactsFrame(ctk.CTkFrame):
         self.last_var.set('')
         self.email_var.set('')
         self.company_var.set('')
-        self.status_badge.update_status('pending')
+        self.status_var.set('pending')
 
     def on_save_contact(self) -> None:
         """Handle Save Changes button click."""
@@ -379,7 +449,7 @@ class ContactsFrame(ctk.CTkFrame):
                 'last_name': self.last_var.get(),
                 'email': self.email_var.get(),
                 'company': self.company_var.get(),
-                'status': self.status_badge.get_status()
+                'status': self.status_var.get()
             }
 
             # Update or add to dataframe
@@ -409,11 +479,95 @@ class ContactsFrame(ctk.CTkFrame):
 
     def on_reset_status(self) -> None:
         """Handle Reset Status button click."""
-        self.status_badge.update_status('pending')
+        self.status_var.set('pending')
 
     def on_mark_optout(self) -> None:
         """Handle Mark Opted-Out button click."""
-        self.status_badge.update_status('opted_out')
+        self.status_var.set('opted_out')
+
+    def on_send_email(self) -> None:
+        """Handle Send Email button click."""
+        if not self.selected_contact:
+            InfoDialog.show(self, "No Contact", "Please select a contact first.")
+            return
+
+        # Get send options
+        send_mode = self.send_mode_var.get()
+        defer_hours = 1
+        msg_folder = self.msg_folder_var.get()
+
+        # Validate defer hours
+        if send_mode == "defer":
+            try:
+                defer_hours = int(self.defer_hours_var.get())
+                if defer_hours < 0:
+                    InfoDialog.show(self, "Invalid Input", "Defer hours must be positive.")
+                    return
+            except ValueError:
+                InfoDialog.show(self, "Invalid Input", "Defer hours must be a number.")
+                return
+
+        # Validate msg folder
+        if send_mode == "msg_file" and not msg_folder:
+            InfoDialog.show(self, "Invalid Input", ".msg folder path is required.")
+            return
+
+        # Determine template based on contact status
+        status = self.selected_contact.get('status', 'pending')
+        if status == 'pending':
+            template = 'initial'
+        elif status in ['sent', 'followup_1', 'followup_2', 'followup_3', 'followup_4']:
+            # Determine next followup
+            followup_count = self.selected_contact.get('followup_count', 0)
+            if followup_count == 0:
+                template = 'followup_1'
+            elif followup_count == 1:
+                template = 'followup_2'
+            elif followup_count == 2:
+                template = 'followup_3'
+            elif followup_count == 3:
+                template = 'followup_4'
+            else:
+                template = 'initial'
+        else:
+            template = 'initial'
+
+        # Send via sequence engine
+        try:
+            from src.sequence_engine import SequenceEngine
+            from src.config import Config
+
+            config = Config()
+            engine = SequenceEngine(config)
+
+            result = engine.send_single_email(
+                email=self.selected_contact['email'],
+                template_name=template,
+                send_mode=send_mode,
+                defer_hours=defer_hours,
+                msg_folder=msg_folder
+            )
+
+            if result['success']:
+                mode_text = {
+                    'send': 'sent immediately',
+                    'msg_file': f'saved as .msg file:\n{result["msg_file_path"]}',
+                    'defer': f'scheduled to send in {defer_hours} hour(s)'
+                }
+                InfoDialog.show(
+                    self,
+                    "Success",
+                    f"Email {mode_text[send_mode]}"
+                )
+            else:
+                InfoDialog.show(
+                    self,
+                    "Error",
+                    f"Failed to send email:\n{result['error']}"
+                )
+
+        except Exception as e:
+            InfoDialog.show(self, "Error", f"Failed to send email:\n{str(e)}")
 
     def on_delete_selected(self) -> None:
         """Handle Delete Selected button click."""

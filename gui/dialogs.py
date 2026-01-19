@@ -4,7 +4,7 @@ Custom dialog windows for user interactions.
 """
 
 import customtkinter as ctk
-from typing import Optional, Dict, List, Callable
+from typing import Optional, Dict, List, Callable, Any
 from tkinter import StringVar
 
 
@@ -474,26 +474,33 @@ class InfoDialog(ctk.CTkToplevel):
         dialog.wait_window()
 
 
-class CampaignDialog(ctk.CTkToplevel):
-    """Dialog for creating or selecting campaigns."""
+class SendOptionsDialog(ctk.CTkToplevel):
+    """Dialog for choosing email sending options."""
 
-    def __init__(self, parent, campaign_manager, current_campaign: Optional[str] = None):
-        """Initialize campaign dialog.
+    def __init__(
+        self,
+        parent,
+        title: str = "Email Sending Options",
+        default_mode: str = "send",
+        default_defer_hours: int = 1,
+        msg_folder: str = "msg_files"
+    ):
+        """Initialize send options dialog.
 
         Args:
             parent: Parent window
-            campaign_manager: CampaignManager instance
-            current_campaign: Currently selected campaign name
+            title: Dialog title
+            default_mode: Default send mode ("send", "msg_file", "defer")
+            default_defer_hours: Default hours to defer
+            msg_folder: Default .msg folder path
         """
         super().__init__(parent)
 
-        self.campaign_manager = campaign_manager
-        self.selected_campaign = current_campaign
-        self.result = None
+        self.result: Optional[Dict] = None
 
         # Window configuration
-        self.title("Campaign Manager")
-        self.geometry("600x450")
+        self.title(title)
+        self.geometry("500x300")
         self.resizable(False, False)
 
         # Make modal
@@ -502,263 +509,519 @@ class CampaignDialog(ctk.CTkToplevel):
 
         # Center on parent
         self.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() - 600) // 2
-        y = parent.winfo_y() + (parent.winfo_height() - 450) // 2
+        x = parent.winfo_x() + (parent.winfo_width() - 500) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - 300) // 2
+        self.geometry(f"+{x}+{y}")
+
+        # Configure grid
+        self.grid_columnconfigure(0, weight=1)
+
+        # Instructions
+        instructions = ctk.CTkLabel(
+            self,
+            text="Choose how to send the email:",
+            font=("Arial Bold", 13)
+        )
+        instructions.grid(row=0, column=0, pady=(20, 10), padx=20, sticky="w")
+
+        # Send mode radio buttons
+        self.mode_var = StringVar(value=default_mode)
+
+        radio_frame = ctk.CTkFrame(self, fg_color="transparent")
+        radio_frame.grid(row=1, column=0, pady=10, padx=40, sticky="w")
+
+        send_radio = ctk.CTkRadioButton(
+            radio_frame,
+            text="Send Immediately - Send via Outlook now",
+            variable=self.mode_var,
+            value="send",
+            font=("Arial", 11)
+        )
+        send_radio.pack(anchor="w", pady=5)
+
+        msg_radio = ctk.CTkRadioButton(
+            radio_frame,
+            text="Save as .msg File - Create .msg file for manual review",
+            variable=self.mode_var,
+            value="msg_file",
+            font=("Arial", 11)
+        )
+        msg_radio.pack(anchor="w", pady=5)
+
+        defer_radio = ctk.CTkRadioButton(
+            radio_frame,
+            text="Defer Send - Schedule for later delivery",
+            variable=self.mode_var,
+            value="defer",
+            font=("Arial", 11)
+        )
+        defer_radio.pack(anchor="w", pady=5)
+
+        # Options frame
+        options_frame = ctk.CTkFrame(self, fg_color="transparent")
+        options_frame.grid(row=2, column=0, pady=10, padx=40, sticky="ew")
+        options_frame.grid_columnconfigure(1, weight=1)
+
+        # Defer hours
+        defer_label = ctk.CTkLabel(
+            options_frame,
+            text="Defer hours:",
+            font=("Arial", 11)
+        )
+        defer_label.grid(row=0, column=0, pady=5, padx=(0, 10), sticky="w")
+
+        self.defer_var = StringVar(value=str(default_defer_hours))
+        defer_entry = ctk.CTkEntry(
+            options_frame,
+            textvariable=self.defer_var,
+            width=80
+        )
+        defer_entry.grid(row=0, column=1, pady=5, sticky="w")
+
+        # .msg folder
+        msg_label = ctk.CTkLabel(
+            options_frame,
+            text=".msg folder:",
+            font=("Arial", 11)
+        )
+        msg_label.grid(row=1, column=0, pady=5, padx=(0, 10), sticky="w")
+
+        self.msg_folder_var = StringVar(value=msg_folder)
+        msg_entry = ctk.CTkEntry(
+            options_frame,
+            textvariable=self.msg_folder_var,
+            width=300
+        )
+        msg_entry.grid(row=1, column=1, pady=5, sticky="w")
+
+        # Button frame
+        button_frame = ctk.CTkFrame(self, fg_color="transparent")
+        button_frame.grid(row=3, column=0, pady=20)
+
+        # Cancel button
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            command=self._on_cancel,
+            width=120,
+            fg_color="gray"
+        )
+        cancel_btn.pack(side="left", padx=5)
+
+        # Send/Save button
+        send_btn = ctk.CTkButton(
+            button_frame,
+            text="Send/Save",
+            command=self._on_send,
+            width=120
+        )
+        send_btn.pack(side="left", padx=5)
+
+        # Bind Enter and Escape
+        self.bind('<Return>', lambda e: self._on_send())
+        self.bind('<Escape>', lambda e: self._on_cancel())
+
+    def _on_send(self) -> None:
+        """Handle send/save button click."""
+        mode = self.mode_var.get()
+
+        # Validate defer hours
+        defer_hours = 1
+        if mode == "defer":
+            try:
+                defer_hours = int(self.defer_var.get())
+                if defer_hours < 0:
+                    InfoDialog.show(self, "Invalid Input", "Defer hours must be positive.")
+                    return
+            except ValueError:
+                InfoDialog.show(self, "Invalid Input", "Defer hours must be a number.")
+                return
+
+        self.result = {
+            "mode": mode,
+            "defer_hours": defer_hours,
+            "msg_folder": self.msg_folder_var.get()
+        }
+        self.destroy()
+
+    def _on_cancel(self) -> None:
+        """Handle cancel button click."""
+        self.result = None
+        self.destroy()
+
+    def get_result(self) -> Optional[Dict]:
+        """Show dialog and return result.
+
+        Returns:
+            Dict with mode, defer_hours, msg_folder or None if cancelled
+        """
+        self.wait_window()
+        return self.result
+
+
+class CreateCampaignDialog(ctk.CTkToplevel):
+    """Dialog for creating a new campaign."""
+
+    def __init__(self, parent, campaign_mgr):
+        """Initialize create campaign dialog.
+
+        Args:
+            parent: Parent window
+            campaign_mgr: CampaignManager instance
+        """
+        super().__init__(parent)
+
+        self.campaign_mgr = campaign_mgr
+        self.result: Optional[Dict] = None
+
+        # Window configuration
+        self.title("Create New Campaign")
+        self.geometry("500x400")
+        self.resizable(False, False)
+
+        # Make modal
+        self.transient(parent)
+        self.grab_set()
+
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - 500) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - 400) // 2
+        self.geometry(f"+{x}+{y}")
+
+        # Configure grid
+        self.grid_columnconfigure(0, weight=1)
+
+        # Title
+        title_label = ctk.CTkLabel(
+            self,
+            text="CREATE NEW CAMPAIGN",
+            font=("Arial Bold", 16)
+        )
+        title_label.grid(row=0, column=0, pady=(20, 20), padx=20)
+
+        # Form frame
+        form_frame = ctk.CTkFrame(self, fg_color="transparent")
+        form_frame.grid(row=1, column=0, pady=10, padx=30, sticky="ew")
+        form_frame.grid_columnconfigure(0, weight=0)
+        form_frame.grid_columnconfigure(1, weight=1)
+
+        # Campaign name
+        name_label = ctk.CTkLabel(
+            form_frame,
+            text="Campaign Name:",
+            font=("Arial", 12),
+            anchor="w"
+        )
+        name_label.grid(row=0, column=0, pady=10, padx=(0, 10), sticky="w")
+
+        self.name_var = StringVar()
+        name_entry = ctk.CTkEntry(
+            form_frame,
+            textvariable=self.name_var,
+            width=300,
+            placeholder_text="e.g., Q1_2026_Outreach"
+        )
+        name_entry.grid(row=0, column=1, pady=10, sticky="ew")
+        name_entry.focus()
+
+        # Sender name
+        sender_label = ctk.CTkLabel(
+            form_frame,
+            text="Sender Name:",
+            font=("Arial", 12),
+            anchor="w"
+        )
+        sender_label.grid(row=1, column=0, pady=10, padx=(0, 10), sticky="w")
+
+        self.sender_var = StringVar()
+        sender_entry = ctk.CTkEntry(
+            form_frame,
+            textvariable=self.sender_var,
+            width=300,
+            placeholder_text="e.g., Jean-François"
+        )
+        sender_entry.grid(row=1, column=1, pady=10, sticky="ew")
+
+        # Subject
+        subject_label = ctk.CTkLabel(
+            form_frame,
+            text="Default Subject:",
+            font=("Arial", 12),
+            anchor="w"
+        )
+        subject_label.grid(row=2, column=0, pady=10, padx=(0, 10), sticky="w")
+
+        self.subject_var = StringVar()
+        subject_entry = ctk.CTkEntry(
+            form_frame,
+            textvariable=self.subject_var,
+            width=300,
+            placeholder_text="e.g., Partnership Opportunity"
+        )
+        subject_entry.grid(row=2, column=1, pady=10, sticky="ew")
+
+        # Copy templates from existing campaign
+        copy_label = ctk.CTkLabel(
+            form_frame,
+            text="Copy Templates From:",
+            font=("Arial", 12),
+            anchor="w"
+        )
+        copy_label.grid(row=3, column=0, pady=10, padx=(0, 10), sticky="w")
+
+        # Get existing campaigns
+        existing_campaigns = self.campaign_mgr.list_campaigns()
+        campaign_names = ["(Create new templates)"] + [c.name for c in existing_campaigns]
+
+        self.copy_var = StringVar(value="(Create new templates)")
+        copy_menu = ctk.CTkOptionMenu(
+            form_frame,
+            variable=self.copy_var,
+            values=campaign_names,
+            width=300
+        )
+        copy_menu.grid(row=3, column=1, pady=10, sticky="ew")
+
+        # Info text
+        info_label = ctk.CTkLabel(
+            self,
+            text="A new folder will be created with contacts, templates, and configuration files.",
+            font=("Arial", 10),
+            text_color="gray",
+            wraplength=440
+        )
+        info_label.grid(row=2, column=0, pady=(10, 20), padx=30)
+
+        # Button frame
+        button_frame = ctk.CTkFrame(self, fg_color="transparent")
+        button_frame.grid(row=3, column=0, pady=(0, 20))
+
+        # Cancel button
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            command=self._on_cancel,
+            width=120,
+            fg_color="gray"
+        )
+        cancel_btn.pack(side="left", padx=5)
+
+        # Create button
+        create_btn = ctk.CTkButton(
+            button_frame,
+            text="Create Campaign",
+            command=self._on_create,
+            width=140,
+            fg_color="#10B981"
+        )
+        create_btn.pack(side="left", padx=5)
+
+        # Bind Enter and Escape
+        self.bind('<Return>', lambda e: self._on_create())
+        self.bind('<Escape>', lambda e: self._on_cancel())
+
+    def _on_create(self) -> None:
+        """Handle create button click."""
+        name = self.name_var.get().strip()
+        sender_name = self.sender_var.get().strip()
+        subject = self.subject_var.get().strip()
+        copy_from = self.copy_var.get()
+
+        # Validate name
+        if not name:
+            InfoDialog.show(self, "Error", "Campaign name is required.")
+            return
+
+        # Prepare copy_from parameter
+        copy_from_campaign = None if copy_from == "(Create new templates)" else copy_from
+
+        try:
+            # Create campaign
+            campaign = self.campaign_mgr.create_campaign(
+                name=name,
+                sender_name=sender_name,
+                subject=subject,
+                copy_from=copy_from_campaign
+            )
+
+            self.result = {
+                'name': campaign.name,
+                'sender_name': sender_name,
+                'subject': subject
+            }
+            self.destroy()
+
+        except ValueError as e:
+            InfoDialog.show(self, "Error", str(e))
+        except Exception as e:
+            InfoDialog.show(self, "Error", f"Failed to create campaign:\n{str(e)}")
+
+    def _on_cancel(self) -> None:
+        """Handle cancel button click."""
+        self.result = None
+        self.destroy()
+
+    def get_result(self) -> Optional[Dict]:
+        """Show dialog and return result.
+
+        Returns:
+            Dict with campaign details or None if cancelled
+        """
+        self.wait_window()
+        return self.result
+
+
+class SelectCampaignDialog(ctk.CTkToplevel):
+    """Dialog for selecting a campaign from a list."""
+
+    def __init__(
+        self,
+        parent,
+        title: str,
+        campaigns: List[Any],
+        action_text: str = "Select"
+    ):
+        """Initialize select campaign dialog.
+
+        Args:
+            parent: Parent window
+            title: Dialog title
+            campaigns: List of Campaign objects
+            action_text: Text for action button
+        """
+        super().__init__(parent)
+
+        self.campaigns = campaigns
+        self.selected_campaign = None
+
+        # Window configuration
+        self.title(title)
+        self.geometry("500x400")
+        self.resizable(False, False)
+
+        # Make modal
+        self.transient(parent)
+        self.grab_set()
+
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - 500) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - 400) // 2
         self.geometry(f"+{x}+{y}")
 
         # Configure grid
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Create UI
-        self._create_header()
-        self._create_campaign_list()
-        self._create_actions()
-        self._create_buttons()
-
-        # Load campaigns
-        self.refresh_campaigns()
-
-    def _create_header(self) -> None:
-        """Create header."""
-        header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
-
-        title = ctk.CTkLabel(
-            header_frame,
-            text="Select or Create Campaign",
+        # Title
+        title_label = ctk.CTkLabel(
+            self,
+            text=title.upper(),
             font=("Arial Bold", 16)
         )
-        title.pack(side="left")
+        title_label.grid(row=0, column=0, pady=(20, 10), padx=20)
 
-    def _create_campaign_list(self) -> None:
-        """Create campaign list."""
-        list_frame = ctk.CTkFrame(self)
-        list_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
-        list_frame.grid_columnconfigure(0, weight=1)
-        list_frame.grid_rowconfigure(0, weight=1)
+        # Scrollable frame for campaign list
+        scroll_frame = ctk.CTkScrollableFrame(self, width=460, height=250)
+        scroll_frame.grid(row=1, column=0, pady=10, padx=20, sticky="nsew")
+        scroll_frame.grid_columnconfigure(0, weight=1)
 
-        # Scrollable frame for campaigns
-        self.campaigns_frame = ctk.CTkScrollableFrame(list_frame, width=540, height=250)
-        self.campaigns_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        self.campaigns_frame.grid_columnconfigure(0, weight=1)
+        # Create campaign radio buttons
+        self.selected_var = StringVar()
 
-    def _create_actions(self) -> None:
-        """Create action buttons."""
-        actions_frame = ctk.CTkFrame(self, fg_color="transparent")
-        actions_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=10)
+        for idx, campaign in enumerate(campaigns):
+            info = campaign.to_dict()
+            contacts_count = info.get('contacts_count', 0)
 
-        # New campaign name entry
-        ctk.CTkLabel(actions_frame, text="New Campaign:").pack(side="left", padx=(0, 10))
-        
-        self.new_campaign_var = StringVar()
-        self.new_campaign_entry = ctk.CTkEntry(
-            actions_frame,
-            textvariable=self.new_campaign_var,
-            placeholder_text="campaign_name",
-            width=250
-        )
-        self.new_campaign_entry.pack(side="left", padx=5)
+            # Campaign card
+            card = ctk.CTkFrame(scroll_frame, fg_color="#2B2B2B", corner_radius=8)
+            card.grid(row=idx, column=0, sticky="ew", pady=5, padx=5)
+            card.grid_columnconfigure(1, weight=1)
 
-        # Create button
-        create_btn = ctk.CTkButton(
-            actions_frame,
-            text="+ Create",
-            command=self.on_create_campaign,
-            width=100,
-            fg_color="#10B981"
-        )
-        create_btn.pack(side="left", padx=5)
+            # Radio button
+            radio = ctk.CTkRadioButton(
+                card,
+                text="",
+                variable=self.selected_var,
+                value=campaign.name,
+                width=20
+            )
+            radio.grid(row=0, column=0, rowspan=2, padx=10, pady=10)
 
-        # Delete button
-        delete_btn = ctk.CTkButton(
-            actions_frame,
-            text="Delete",
-            command=self.on_delete_campaign,
-            width=100,
-            fg_color="#EF4444"
-        )
-        delete_btn.pack(side="left", padx=5)
+            # Campaign name
+            name_label = ctk.CTkLabel(
+                card,
+                text=campaign.name,
+                font=("Arial Bold", 13),
+                anchor="w"
+            )
+            name_label.grid(row=0, column=1, sticky="w", padx=(0, 10), pady=(10, 0))
 
-    def _create_buttons(self) -> None:
-        """Create dialog buttons."""
+            # Campaign info
+            info_text = f"{contacts_count} contacts"
+            info_label = ctk.CTkLabel(
+                card,
+                text=info_text,
+                font=("Arial", 10),
+                text_color="gray",
+                anchor="w"
+            )
+            info_label.grid(row=1, column=1, sticky="w", padx=(0, 10), pady=(0, 10))
+
+        # Button frame
         button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        button_frame.grid(row=3, column=0, pady=(0, 20))
+        button_frame.grid(row=2, column=0, pady=20)
 
+        # Cancel button
         cancel_btn = ctk.CTkButton(
             button_frame,
             text="Cancel",
-            command=self.on_cancel,
+            command=self._on_cancel,
             width=120,
             fg_color="gray"
         )
         cancel_btn.pack(side="left", padx=5)
 
-        select_btn = ctk.CTkButton(
+        # Action button
+        action_btn = ctk.CTkButton(
             button_frame,
-            text="Select Campaign",
-            command=self.on_select,
-            width=150
+            text=action_text,
+            command=self._on_select,
+            width=120
         )
-        select_btn.pack(side="left", padx=5)
+        action_btn.pack(side="left", padx=5)
 
-    def refresh_campaigns(self) -> None:
-        """Refresh campaign list."""
-        # Clear existing
-        for widget in self.campaigns_frame.winfo_children():
-            widget.destroy()
+        # Bind Enter and Escape
+        self.bind('<Return>', lambda e: self._on_select())
+        self.bind('<Escape>', lambda e: self._on_cancel())
 
-        # Get campaigns
-        campaigns = self.campaign_manager.list_campaigns()
+    def _on_select(self) -> None:
+        """Handle select button click."""
+        selected_name = self.selected_var.get()
 
-        if not campaigns:
-            no_campaigns_label = ctk.CTkLabel(
-                self.campaigns_frame,
-                text="No campaigns yet. Create one below.",
-                font=("Arial", 12),
-                text_color="gray"
-            )
-            no_campaigns_label.pack(pady=50)
+        if not selected_name:
+            InfoDialog.show(self, "Error", "Please select a campaign.")
             return
 
-        # Display campaigns
-        for i, campaign_name in enumerate(campaigns):
-            campaign = self.campaign_manager.get_campaign(campaign_name)
-            config = campaign.get_config()
-            
-            # Campaign frame
-            camp_frame = ctk.CTkFrame(
-                self.campaigns_frame,
-                fg_color=("#E5E7EB", "#374151") if campaign_name == self.selected_campaign else "transparent"
-            )
-            camp_frame.grid(row=i, column=0, sticky="ew", padx=5, pady=5)
-            camp_frame.grid_columnconfigure(0, weight=1)
+        # Find selected campaign
+        for campaign in self.campaigns:
+            if campaign.name == selected_name:
+                self.selected_campaign = campaign
+                break
 
-            # Campaign name
-            name_label = ctk.CTkLabel(
-                camp_frame,
-                text=campaign_name,
-                font=("Arial Bold", 13),
-                anchor="w"
-            )
-            name_label.grid(row=0, column=0, sticky="w", padx=15, pady=(10, 2))
-
-            # Campaign details
-            created = config.get('campaign', {}).get('created', 'Unknown')
-            status = config.get('campaign', {}).get('status', 'unknown')
-            
-            details_text = f"Created: {created} | Status: {status.title()}"
-            details_label = ctk.CTkLabel(
-                camp_frame,
-                text=details_text,
-                font=("Arial", 10),
-                text_color="gray",
-                anchor="w"
-            )
-            details_label.grid(row=1, column=0, sticky="w", padx=15, pady=(0, 10))
-
-            # Select button
-            select_btn = ctk.CTkButton(
-                camp_frame,
-                text="Select" if campaign_name != self.selected_campaign else "✓ Current",
-                command=lambda name=campaign_name: self.select_campaign(name),
-                width=100,
-                height=28,
-                fg_color="#3B82F6" if campaign_name != self.selected_campaign else "#10B981"
-            )
-            select_btn.grid(row=0, column=1, rowspan=2, padx=15, pady=10)
-
-    def select_campaign(self, name: str) -> None:
-        """Select a campaign.
-
-        Args:
-            name: Campaign name
-        """
-        self.selected_campaign = name
-        self.refresh_campaigns()
-
-    def on_create_campaign(self) -> None:
-        """Handle create campaign."""
-        name = self.new_campaign_var.get().strip()
-        
-        if not name:
-            InfoDialog.show(self, "Validation Error", "Please enter a campaign name.")
-            return
-
-        # Validate name (no special characters)
-        import re
-        if not re.match(r'^[a-zA-Z0-9_-]+$', name):
-            InfoDialog.show(
-                self,
-                "Validation Error",
-                "Campaign name can only contain letters, numbers, hyphens, and underscores."
-            )
-            return
-
-        if self.campaign_manager.campaign_exists(name):
-            InfoDialog.show(self, "Error", f"Campaign '{name}' already exists.")
-            return
-
-        # Create campaign
-        try:
-            self.campaign_manager.create_campaign(name, sample_contacts=True)
-            self.selected_campaign = name
-            self.new_campaign_var.set("")
-            self.refresh_campaigns()
-            InfoDialog.show(
-                self,
-                "Success",
-                f"Campaign '{name}' created with 3 sample contacts."
-            )
-        except Exception as e:
-            InfoDialog.show(self, "Error", f"Failed to create campaign:\n{str(e)}")
-
-    def on_delete_campaign(self) -> None:
-        """Handle delete campaign."""
-        if not self.selected_campaign:
-            InfoDialog.show(self, "No Selection", "Please select a campaign to delete.")
-            return
-
-        # Confirm deletion
-        confirm = ConfirmationDialog(
-            self,
-            "Delete Campaign",
-            f"Delete campaign '{self.selected_campaign}'?\n\nThis will permanently delete all contacts, templates, and configuration.",
-            confirm_text="Delete",
-            danger=True
-        )
-
-        if not confirm.get_result():
-            return
-
-        # Delete campaign
-        try:
-            self.campaign_manager.delete_campaign(self.selected_campaign)
-            self.selected_campaign = None
-            self.refresh_campaigns()
-            InfoDialog.show(self, "Success", "Campaign deleted successfully.")
-        except Exception as e:
-            InfoDialog.show(self, "Error", f"Failed to delete campaign:\n{str(e)}")
-
-    def on_select(self) -> None:
-        """Handle select button."""
-        if not self.selected_campaign:
-            InfoDialog.show(self, "No Selection", "Please select a campaign.")
-            return
-
-        self.result = self.selected_campaign
         self.destroy()
 
-    def on_cancel(self) -> None:
-        """Handle cancel button."""
-        self.result = None
+    def _on_cancel(self) -> None:
+        """Handle cancel button click."""
+        self.selected_campaign = None
         self.destroy()
 
-    def get_result(self) -> Optional[str]:
+    def get_result(self) -> Optional[Any]:
         """Show dialog and return selected campaign.
 
         Returns:
-            Selected campaign name or None
+            Selected Campaign object or None if cancelled
         """
         self.wait_window()
-        return self.result
+        return self.selected_campaign

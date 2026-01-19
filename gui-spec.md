@@ -56,6 +56,7 @@ paths:
   contacts_file: "contacts.xlsx"            # Relative to project_folder
   templates_folder: "templates"             # Relative to project_folder
   logs_folder: "logs"                       # Relative to project_folder
+  msg_output_folder: "msg_files"            # Folder for .msg file output
 
 # GUI appearance
 appearance:
@@ -71,6 +72,8 @@ behavior:
   confirm_before_send: true    # Show confirmation dialog before sending
   show_notifications: true     # Windows toast notifications
   minimize_to_tray: true       # Minimize to system tray instead of taskbar
+  default_send_mode: "send"    # "send", "msg_file", or "defer"
+  default_defer_hours: 1       # Default hours to defer when using defer mode
 
 # Recent files (auto-populated)
 recent_projects: []
@@ -199,11 +202,16 @@ recent_projects: []
 │  ┌─────────────────────────────────────────────────────────────┐   │
 │  │  Title: [Mr     ▼]  First: [Jean      ]  Last: [Dupont    ] │   │
 │  │  Email: [jean@acme.com                ]  Company: [Acme Corp]│   │
-│  │  Status: SENT        Sequence: seq_20260117                  │   │
+│  │  Status: [SENT      ▼]  Sequence: seq_20260117               │   │
 │  │  Initial sent: 2026-01-15 10:30    Follow-ups: 1            │   │
 │  │  Last contact: 2026-01-18 14:30    Notes: [_______________] │   │
 │  │                                                              │   │
+│  │  Email Action: [● Send Now  ○ Save as .msg  ○ Defer Send]   │   │
+│  │  Defer hours: [1    ] (active when 'Defer Send' selected)   │   │
+│  │  .msg folder: [C:\email-sequence\msg_files  ] [Browse]      │   │
+│  │                                                              │   │
 │  │  [💾 Save Changes]  [↻ Reset Status]  [⛔ Mark Opted-Out]    │   │
+│  │  [📧 Send Email]                                             │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -212,11 +220,16 @@ recent_projects: []
 **Features:**
 - Sortable columns (click header)
 - Multi-select with checkboxes
-- Status filter dropdown
+- Status filter dropdown (including all status options)
 - Search box (filters as you type)
 - Inline status badges with colors
-- Detail panel for selected contact
+- Detail panel for selected contact with editable status dropdown
 - CSV import with column mapping dialog
+- Email sending options:
+  - Send immediately via Outlook
+  - Save as .msg file in designated folder
+  - Defer sending by X hours (using Outlook's deferred delivery)
+- Contact status can be set when adding/editing contacts
 
 **Status colors:**
 - `pending` → Gray ○
@@ -280,6 +293,19 @@ recent_projects: []
 │  │  Follow-up #1: [3  ] days    Follow-up #2: [7  ] days       │   │
 │  │  Follow-up #3: [14 ] days    Max follow-ups: [3  ]          │   │
 │  │                                              [Save Timing]   │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  EMAIL SENDING OPTIONS                                              │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Default send mode:                                          │   │
+│  │  [● Send immediately  ○ Save as .msg  ○ Defer send]         │   │
+│  │                                                              │   │
+│  │  .msg output folder: [C:\email-sequence\msg_files  ] [Browse]│   │
+│  │  Default defer hours: [1  ] hours                           │   │
+│  │                                                              │   │
+│  │  These settings apply to automated sequence operations.     │   │
+│  │  Manual sends can override these defaults.                  │   │
+│  │                                              [Save Settings] │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -616,6 +642,20 @@ class ContactsFrame(ctk.CTkFrame):
     def on_save_contact(self) -> None:
         """Save detail panel changes to ContactTracker."""
         pass
+
+    def on_send_email(self) -> None:
+        """
+        Send email to selected contact using configured send mode.
+        Shows SendOptionsDialog to let user choose:
+        - Send immediately
+        - Save as .msg file
+        - Defer by X hours
+        """
+        pass
+
+    def on_status_change(self, status: str) -> None:
+        """Handle status dropdown change in detail panel."""
+        pass
 ```
 
 ### SequenceFrame (gui/frames/sequence.py)
@@ -757,16 +797,58 @@ class CSVImportDialog(ctk.CTkToplevel):
 ```python
 class ProgressDialog(ctk.CTkToplevel):
     """Non-blocking progress dialog for long operations."""
-    
+
     def __init__(self, parent, title: str, total: int):
         pass
-    
+
     def update(self, current: int, message: str) -> None:
         """Update progress bar and message."""
         pass
-    
+
     def close(self) -> None:
         """Close dialog."""
+        pass
+```
+
+### SendOptionsDialog
+
+```python
+class SendOptionsDialog(ctk.CTkToplevel):
+    """Dialog for choosing email sending options."""
+
+    def __init__(
+        self,
+        parent,
+        title: str = "Email Sending Options",
+        default_mode: str = "send",  # "send", "msg_file", "defer"
+        default_defer_hours: int = 1,
+        msg_folder: str = ""
+    ):
+        """
+        Show dialog for selecting how to send emails:
+
+        [● Send Immediately]  - Send via Outlook now
+        [○ Save as .msg File] - Create .msg file in folder
+        [○ Defer Send]        - Schedule for later
+
+        Defer Hours: [1    ] hours
+        .msg Folder: [C:\path\to\folder  ] [Browse]
+
+        [Send/Save]  [Cancel]
+        """
+        pass
+
+    def get_result(self) -> dict | None:
+        """
+        Return selected options or None if cancelled.
+
+        Returns:
+            {
+                "mode": "send" | "msg_file" | "defer",
+                "defer_hours": int,  # Only relevant for "defer" mode
+                "msg_folder": str    # Only relevant for "msg_file" mode
+            }
+        """
         pass
 ```
 

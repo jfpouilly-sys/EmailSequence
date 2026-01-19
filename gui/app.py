@@ -12,8 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gui.config import GUIConfig
-from gui.campaign_manager import CampaignManager
-from gui.dialogs import CampaignDialog, InfoDialog
+from src.campaign_manager import CampaignManager
 
 
 class MainApp(ctk.CTk):
@@ -31,8 +30,8 @@ class MainApp(ctk.CTk):
         self.gui_config = GUIConfig(config_path)
 
         # Initialize campaign manager
-        campaigns_base = self.gui_config.get_campaigns_base_path()
-        self.campaign_manager = CampaignManager(str(campaigns_base))
+        self.campaign_mgr = CampaignManager()
+        self.active_campaign = self.campaign_mgr.get_active_campaign()
 
         # Set up window
         self.title("Email Sequence Manager")
@@ -56,9 +55,6 @@ class MainApp(ctk.CTk):
         self.create_content_area()
         self.create_status_bar()
 
-        # Check for campaign selection
-        self.ensure_campaign_selected()
-
         # Navigate to dashboard by default
         self.navigate_to("dashboard")
 
@@ -76,7 +72,7 @@ class MainApp(ctk.CTk):
         # Sidebar frame
         self.sidebar = ctk.CTkFrame(self, width=sidebar_width, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(7, weight=1)  # Spacer row
+        self.sidebar.grid_rowconfigure(8, weight=1)  # Spacer row
 
         # Logo/Title
         logo_label = ctk.CTkLabel(
@@ -87,41 +83,56 @@ class MainApp(ctk.CTk):
         )
         logo_label.grid(row=0, column=0, pady=(20, 10), padx=20)
 
-        # Campaign info
-        self.campaign_info_label = ctk.CTkLabel(
+        # Campaign selector
+        campaign_label = ctk.CTkLabel(
             self.sidebar,
-            text="No Campaign",
+            text="Active Campaign:",
             font=("Arial", 10),
-            text_color="gray"
+            text_color="gray",
+            anchor="w"
         )
-        self.campaign_info_label.grid(row=0, column=0, pady=(60, 0), padx=20)
+        campaign_label.grid(row=0, column=0, pady=(70, 0), padx=20, sticky="sw")
 
-        # Change Campaign button
-        change_campaign_btn = ctk.CTkButton(
+        # Get campaigns for dropdown
+        campaigns = self.campaign_mgr.list_campaigns()
+        campaign_names = [c.name for c in campaigns] if campaigns else ["(No campaigns)"]
+
+        # Set initial value
+        initial_campaign = self.active_campaign if self.active_campaign else "(No campaigns)"
+        if initial_campaign not in campaign_names and campaign_names != ["(No campaigns)"]:
+            initial_campaign = campaign_names[0] if campaign_names else "(No campaigns)"
+
+        from tkinter import StringVar
+        self.campaign_var = StringVar(value=initial_campaign)
+
+        self.campaign_selector = ctk.CTkOptionMenu(
             self.sidebar,
-            text="📁 Change Campaign",
-            command=self.show_campaign_dialog,
+            variable=self.campaign_var,
+            values=campaign_names,
+            command=self.on_campaign_changed,
             width=sidebar_width - 40,
-            height=32,
             font=("Arial", 11),
-            fg_color="#374151",
-            hover_color="#1F2937"
+            fg_color="#1F2937",
+            button_color="#3B82F6",
+            button_hover_color="#2563EB"
         )
-        change_campaign_btn.grid(row=0, column=0, pady=(90, 0), padx=20)
+        self.campaign_selector.grid(row=0, column=0, pady=(90, 0), padx=20, sticky="sw")
+
+        # Separator
+        separator = ctk.CTkFrame(self.sidebar, height=2, fg_color="gray")
+        separator.grid(row=0, column=0, pady=(130, 0), padx=20, sticky="sew")
 
         # Navigation buttons
         self.nav_buttons = {}
-
-        # Update campaign display
-        self.update_campaign_display()
 
         nav_items = [
             ("dashboard", "🏠 Dashboard", 1),
             ("contacts", "👥 Contacts", 2),
             ("sequence", "▶️  Sequence", 3),
             ("templates", "📝 Templates", 4),
-            ("logs", "📋 Logs", 5),
-            ("settings", "⚙️  Settings", 6),
+            ("campaigns", "📁 Campaigns", 5),
+            ("logs", "📋 Logs", 6),
+            ("settings", "⚙️  Settings", 7),
         ]
 
         for frame_name, label, row in nav_items:
@@ -143,11 +154,11 @@ class MainApp(ctk.CTk):
         # Version label at bottom
         version_label = ctk.CTkLabel(
             self.sidebar,
-            text="v1.0.0-20260119",
+            text="v1.0.0",
             font=("Arial", 9),
             text_color="gray"
         )
-        version_label.grid(row=8, column=0, pady=(0, 10))
+        version_label.grid(row=9, column=0, pady=(0, 10))
 
     def create_content_area(self) -> None:
         """Create main content area container."""
@@ -215,6 +226,9 @@ class MainApp(ctk.CTk):
             elif frame_name == "templates":
                 from gui.frames.templates import TemplatesFrame
                 self.current_frame = TemplatesFrame(self.content_container, self)
+            elif frame_name == "campaigns":
+                from gui.frames.campaigns import CampaignsFrame
+                self.current_frame = CampaignsFrame(self.content_container, self)
             elif frame_name == "logs":
                 from gui.frames.logs import LogsFrame
                 self.current_frame = LogsFrame(self.content_container, self)
@@ -321,54 +335,48 @@ class MainApp(ctk.CTk):
         self.current_frame_name = ""  # Force reload
         self.navigate_to(current)
 
-    def ensure_campaign_selected(self) -> None:
-        """Ensure a campaign is selected, show dialog if not."""
-        current_campaign = self.gui_config.get_current_campaign()
+    def on_campaign_changed(self, campaign_name: str) -> None:
+        """Handle campaign selection change.
 
-        # Check if campaign still exists
-        if current_campaign and not self.campaign_manager.campaign_exists(current_campaign):
-            current_campaign = None
-            self.gui_config.set_current_campaign(None)
+        Args:
+            campaign_name: Name of selected campaign
+        """
+        if campaign_name == "(No campaigns)":
+            return
 
-        # Show dialog if needed
-        if not current_campaign and self.gui_config.get('behavior.show_campaign_on_startup', True):
-            self.show_campaign_dialog()
+        # Set as active campaign
+        success = self.campaign_mgr.set_active_campaign(campaign_name)
 
-    def show_campaign_dialog(self) -> None:
-        """Show campaign selection/creation dialog."""
-        current = self.gui_config.get_current_campaign()
+        if success:
+            self.active_campaign = campaign_name
+            self.update_status_bar(message=f"Switched to campaign: {campaign_name}")
 
-        dialog = CampaignDialog(self, self.campaign_manager, current)
-        selected = dialog.get_result()
-
-        if selected:
-            self.gui_config.set_current_campaign(selected)
-            self.gui_config.add_recent_campaign(selected)
-            self.update_campaign_display()
-            self.reload_frame()  # Reload current frame with new campaign
-
-            InfoDialog.show(
-                self,
-                "Campaign Selected",
-                f"Campaign '{selected}' is now active.\n\nAll operations will use this campaign's contacts and templates."
-            )
-
-    def update_campaign_display(self) -> None:
-        """Update campaign display in sidebar."""
-        current_campaign = self.gui_config.get_current_campaign()
-
-        if current_campaign:
-            self.campaign_info_label.configure(
-                text=f"📁 {current_campaign}",
-                text_color="#10B981"
-            )
-            self.title(f"Email Sequence Manager - {current_campaign}")
+            # Reload current frame to use new campaign
+            self.reload_frame()
         else:
-            self.campaign_info_label.configure(
-                text="No Campaign Selected",
-                text_color="gray"
-            )
-            self.title("Email Sequence Manager")
+            self.update_status_bar(message=f"Failed to switch to campaign: {campaign_name}")
+
+    def reload_active_campaign(self) -> None:
+        """Reload campaign selector with current campaigns."""
+        # Get updated list of campaigns
+        campaigns = self.campaign_mgr.list_campaigns()
+        campaign_names = [c.name for c in campaigns] if campaigns else ["(No campaigns)"]
+
+        # Update dropdown values
+        self.campaign_selector.configure(values=campaign_names)
+
+        # Update active campaign
+        self.active_campaign = self.campaign_mgr.get_active_campaign()
+
+        if self.active_campaign and self.active_campaign in campaign_names:
+            self.campaign_var.set(self.active_campaign)
+        elif campaign_names and campaign_names[0] != "(No campaigns)":
+            self.campaign_var.set(campaign_names[0])
+        else:
+            self.campaign_var.set("(No campaigns)")
+
+        # Reload current frame
+        self.reload_frame()
 
 
 def main():
