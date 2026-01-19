@@ -238,7 +238,7 @@ class TemplatesFrame(ctk.CTkFrame):
         self.current_template = template_name
 
         try:
-            templates_folder = self.gui_config.get_absolute_path('templates_folder')
+            templates_folder = self.gui_config.get_campaign_templates_path()
             template_file = templates_folder / f"{template_name}.html"
 
             if template_file.exists():
@@ -343,7 +343,7 @@ class TemplatesFrame(ctk.CTkFrame):
     def on_save(self) -> None:
         """Handle Save Template button."""
         try:
-            templates_folder = self.gui_config.get_absolute_path('templates_folder')
+            templates_folder = self.gui_config.get_campaign_templates_path()
             templates_folder.mkdir(parents=True, exist_ok=True)
 
             template_file = templates_folder / f"{self.current_template}.html"
