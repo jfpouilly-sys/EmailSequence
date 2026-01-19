@@ -12,6 +12,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gui.config import GUIConfig
+from gui.campaign_manager import CampaignManager
+from gui.dialogs import CampaignDialog, InfoDialog
 
 
 class MainApp(ctk.CTk):
@@ -27,6 +29,10 @@ class MainApp(ctk.CTk):
 
         # Load configuration
         self.gui_config = GUIConfig(config_path)
+
+        # Initialize campaign manager
+        campaigns_base = self.gui_config.get_campaigns_base_path()
+        self.campaign_manager = CampaignManager(str(campaigns_base))
 
         # Set up window
         self.title("Email Sequence Manager")
@@ -49,6 +55,9 @@ class MainApp(ctk.CTk):
         self.create_sidebar()
         self.create_content_area()
         self.create_status_bar()
+
+        # Check for campaign selection
+        self.ensure_campaign_selected()
 
         # Navigate to dashboard by default
         self.navigate_to("dashboard")
@@ -76,10 +85,35 @@ class MainApp(ctk.CTk):
             font=("Arial Bold", 16),
             text_color="#3B82F6"
         )
-        logo_label.grid(row=0, column=0, pady=(20, 30), padx=20)
+        logo_label.grid(row=0, column=0, pady=(20, 10), padx=20)
+
+        # Campaign info
+        self.campaign_info_label = ctk.CTkLabel(
+            self.sidebar,
+            text="No Campaign",
+            font=("Arial", 10),
+            text_color="gray"
+        )
+        self.campaign_info_label.grid(row=0, column=0, pady=(60, 0), padx=20)
+
+        # Change Campaign button
+        change_campaign_btn = ctk.CTkButton(
+            self.sidebar,
+            text="📁 Change Campaign",
+            command=self.show_campaign_dialog,
+            width=sidebar_width - 40,
+            height=32,
+            font=("Arial", 11),
+            fg_color="#374151",
+            hover_color="#1F2937"
+        )
+        change_campaign_btn.grid(row=0, column=0, pady=(90, 0), padx=20)
 
         # Navigation buttons
         self.nav_buttons = {}
+
+        # Update campaign display
+        self.update_campaign_display()
 
         nav_items = [
             ("dashboard", "🏠 Dashboard", 1),
@@ -286,6 +320,55 @@ class MainApp(ctk.CTk):
         current = self.current_frame_name
         self.current_frame_name = ""  # Force reload
         self.navigate_to(current)
+
+    def ensure_campaign_selected(self) -> None:
+        """Ensure a campaign is selected, show dialog if not."""
+        current_campaign = self.gui_config.get_current_campaign()
+
+        # Check if campaign still exists
+        if current_campaign and not self.campaign_manager.campaign_exists(current_campaign):
+            current_campaign = None
+            self.gui_config.set_current_campaign(None)
+
+        # Show dialog if needed
+        if not current_campaign and self.gui_config.get('behavior.show_campaign_on_startup', True):
+            self.show_campaign_dialog()
+
+    def show_campaign_dialog(self) -> None:
+        """Show campaign selection/creation dialog."""
+        current = self.gui_config.get_current_campaign()
+
+        dialog = CampaignDialog(self, self.campaign_manager, current)
+        selected = dialog.get_result()
+
+        if selected:
+            self.gui_config.set_current_campaign(selected)
+            self.gui_config.add_recent_campaign(selected)
+            self.update_campaign_display()
+            self.reload_frame()  # Reload current frame with new campaign
+
+            InfoDialog.show(
+                self,
+                "Campaign Selected",
+                f"Campaign '{selected}' is now active.\n\nAll operations will use this campaign's contacts and templates."
+            )
+
+    def update_campaign_display(self) -> None:
+        """Update campaign display in sidebar."""
+        current_campaign = self.gui_config.get_current_campaign()
+
+        if current_campaign:
+            self.campaign_info_label.configure(
+                text=f"📁 {current_campaign}",
+                text_color="#10B981"
+            )
+            self.title(f"Email Sequence Manager - {current_campaign}")
+        else:
+            self.campaign_info_label.configure(
+                text="No Campaign Selected",
+                text_color="gray"
+            )
+            self.title("Email Sequence Manager")
 
 
 def main():
