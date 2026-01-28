@@ -8,42 +8,57 @@
         <vm:MainViewModel/>
     </Window.DataContext>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="250"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+    <DockPanel>
+        <!-- Menu Bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Logout" Command="{Binding LogoutCommand}"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="ExitMenuItem_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Click="AboutMenuItem_Click"/>
+            </MenuItem>
+        </Menu>
 
-        <!-- Sidebar -->
-        <Border Grid.Column="0" Background="{StaticResource PrimaryBrush}">
-            <StackPanel Margin="0,20,0,0">
-                <TextBlock Text="Lead Generator" Foreground="White" FontSize="20"
-                          FontWeight="Bold" Margin="20,0,20,30"/>
+        <!-- Main Grid -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <Button Content="Dashboard" Background="Transparent" Foreground="White"
-                       BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
-                       Padding="20,0" Command="{Binding NavigateToDashboardCommand}"/>
-                <Button Content="Campaigns" Background="Transparent" Foreground="White"
-                       BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
-                       Padding="20,0" Command="{Binding NavigateToCampaignsCommand}"/>
-                <Button Content="Contacts" Background="Transparent" Foreground="White"
-                       BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
-                       Padding="20,0" Command="{Binding NavigateToContactsCommand}"/>
-                <Button Content="Reports" Background="Transparent" Foreground="White"
-                       BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
-                       Padding="20,0" Command="{Binding NavigateToReportsCommand}"/>
+            <!-- Sidebar -->
+            <Border Grid.Column="0" Background="{StaticResource PrimaryBrush}">
+                <StackPanel Margin="0,20,0,0">
+                    <TextBlock Text="Lead Generator" Foreground="White" FontSize="20"
+                              FontWeight="Bold" Margin="20,0,20,30"/>
 
-                <Separator Margin="20,20" Background="White" Opacity="0.2"/>
+                    <Button Content="Dashboard" Background="Transparent" Foreground="White"
+                           BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
+                           Padding="20,0" Command="{Binding NavigateToDashboardCommand}"/>
+                    <Button Content="Campaigns" Background="Transparent" Foreground="White"
+                           BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
+                           Padding="20,0" Command="{Binding NavigateToCampaignsCommand}"/>
+                    <Button Content="Contacts" Background="Transparent" Foreground="White"
+                           BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
+                           Padding="20,0" Command="{Binding NavigateToContactsCommand}"/>
+                    <Button Content="Reports" Background="Transparent" Foreground="White"
+                           BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
+                           Padding="20,0" Command="{Binding NavigateToReportsCommand}"/>
 
-                <Button Content="Logout" Background="Transparent" Foreground="White"
-                       BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
-                       Padding="20,0" Command="{Binding LogoutCommand}"/>
-            </StackPanel>
-        </Border>
+                    <Separator Margin="20,20" Background="White" Opacity="0.2"/>
 
-        <!-- Main Content Area -->
-        <Grid Grid.Column="1" Background="{StaticResource BackgroundBrush}">
-            <ContentControl Content="{Binding CurrentView}"/>
+                    <Button Content="Logout" Background="Transparent" Foreground="White"
+                           BorderThickness="0" Height="45" HorizontalContentAlignment="Left"
+                           Padding="20,0" Command="{Binding LogoutCommand}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Main Content Area -->
+            <Grid Grid.Column="1" Background="{StaticResource BackgroundBrush}">
+                <ContentControl Content="{Binding CurrentView}"/>
+            </Grid>
         </Grid>
-    </Grid>
+    </DockPanel>
 </Window>

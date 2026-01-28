@@ -1,5 +1,7 @@
 # Lead Generator
 
+**Version: 260128-2** | Built with .NET 8 | PostgreSQL 15+
+
 A multi-user desktop application for managing digital marketing email campaigns with Outlook integration.
 
 ## Overview
@@ -193,11 +195,40 @@ http://localhost:5000/swagger
 ## Key Endpoints
 
 - `POST /api/auth/login` - Authenticate and get JWT token
+- `GET /api/version` - Get application version information
+- `GET /api/version/health` - Get API health status
 - `GET /api/campaigns` - List all campaigns
 - `POST /api/campaigns` - Create new campaign
 - `GET /api/contacts/list/{listId}` - Get contacts for a list
 - `POST /api/contacts/import/{listId}` - Import contacts from CSV
 - `GET /api/reports/campaign/{campaignId}` - Get campaign statistics
+
+## Version Information
+
+### Version Format
+
+Versions follow the format: **YYMMDD-x**
+
+- `YY` = Last two digits of the year
+- `MM` = Month (01-12)
+- `DD` = Day (01-31)
+- `x` = Build number for that day (starting at 1)
+
+Example: `260128-2` = January 28, 2026, Build 2
+
+### Viewing Version
+
+- **Desktop Client**: Help → About menu displays current version and system information
+- **API Server**: Access `/api/version` endpoint for detailed version information
+- **CHANGELOG**: See `CHANGELOG.md` for version history and changes between releases
+
+### Changelog
+
+All version changes are documented in the `CHANGELOG.md` file. Each version entry includes:
+- Added features
+- Changed functionality
+- Fixed bugs
+- Breaking changes (if any)
 
 ## Security Features
 
