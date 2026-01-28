@@ -1,565 +1,317 @@
-# Email Sequence Automation System
+# Lead Generator
 
-A Python-based email sequence automation system for Windows 11 that sends personalized emails via Microsoft Outlook, tracks replies automatically, and manages follow-up sequences.
+**Version: 260128-2** | Built with .NET 8 | PostgreSQL 15+
+
+A multi-user desktop application for managing digital marketing email campaigns with Outlook integration.
+
+## Overview
+
+Lead Generator is a comprehensive email campaign management system built on .NET 8, featuring:
+
+- **API Server**: REST API with PostgreSQL database for campaign, contact, and email management
+- **Desktop Client**: WPF Windows application for campaign creation and monitoring
+- **Mail Service**: Windows Service with Outlook COM Interop for automated email sending and reply detection
+- **CRM Integration**: Sync endpoints for integration with external CRM systems
 
 ## Features
 
-- **Automated Email Sequences**: Send initial emails and up to 4 follow-ups automatically (5 total emails)
-- **Unique Email IDs**: Each email gets a unique tracking ID (Lxxxxxx-y format) appended to subject line
-- **Multi-Campaign Management**: Manage multiple campaigns with isolated folders, contacts, and templates
-- **Reply Tracking**: Scans Outlook inbox to detect replies and update contact status
-- **Excel-Based Contact Management**: Simple contact database using Excel
-- **Flexible Contact Status**: Add contacts with any status (pending, sent, followup_1-4, etc.)
-- **Multiple Email Sending Options**:
-  - Send emails immediately via Outlook
-  - Save emails as .msg files in a designated folder for manual review/sending
-  - Defer email sending by a specified number of hours using Outlook's deferred delivery
-- **Template System**: Customizable HTML email templates with personalization
-- **Dry Run Mode**: Test your sequences without actually sending emails
-- **Task Scheduler Integration**: Run automated cycles to check replies and send follow-ups
-- **Comprehensive Logging**: Detailed logs of all file operations, API calls, and email activities
+- ✅ Multi-user authentication with role-based access (Admin, Manager, User)
+- ✅ Campaign management with email sequences
+- ✅ Contact list management with CSV import
+- ✅ Template editor with merge tags for personalization
+- ✅ Outlook integration for email sending
+- ✅ Automatic reply and unsubscribe detection
+- ✅ Campaign analytics and reporting
+- ✅ Suppression list management
+- ✅ A/B testing support
+- ✅ File attachment support (direct or tracked links)
+- ✅ Sending throttling and warmup mode
+- ✅ Internal network only (no public endpoints)
 
-## Requirements
+## Technology Stack
 
-- Windows 11 (or Windows 10)
-- Microsoft Outlook (desktop application) installed and configured
-- Python 3.8 or higher
+- **.NET 8** - Modern cross-platform framework
+- **PostgreSQL 15+** - Robust relational database
+- **Entity Framework Core 8** - ORM for database access
+- **WPF** - Rich desktop UI framework
+- **Outlook COM Interop** - Email integration
+- **JWT Authentication** - Secure API access
+- **BCrypt** - Password hashing
+- **Serilog** - Structured logging
+
+## Project Structure
+
+```
+LeadGenerator/
+├── src/
+│   ├── LeadGenerator.Core/          # Domain entities and enums
+│   ├── LeadGenerator.Data/          # EF Core DbContext and configurations
+│   ├── LeadGenerator.Api/           # REST API server
+│   ├── LeadGenerator.Desktop/       # WPF client application
+│   └── LeadGenerator.MailService/   # Windows Service for email processing
+├── scripts/
+│   ├── database/                    # SQL scripts for database setup
+│   └── install/                     # PowerShell installation scripts
+├── docs/                            # Documentation
+└── LeadGenerator.sln                # Visual Studio solution
+```
+
+## System Requirements
+
+### Server (API + Database)
+- Windows Server 2019+ or Windows 10/11 Pro
+- 4 GB RAM minimum (8 GB recommended)
+- 50 GB disk space
+- .NET 8 Runtime
+- PostgreSQL 15+
+
+### Workstations (Desktop Client + Mail Service)
+- Windows 10/11
+- 4 GB RAM minimum
+- .NET 8 Desktop Runtime
+- Microsoft Outlook 2016+ (installed and configured)
+- Network access to API server
+
+### Network
+- All components on internal network or VPN
+- Port 5000 (or configured) open for API
+- Port 5432 open for PostgreSQL (server only)
 
 ## Installation
 
-1. **Clone or download this repository**
+### Prerequisites
 
-2. **Install Python dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+1. Install **.NET 8 SDK** from https://dotnet.microsoft.com/download
+2. Install **PostgreSQL 15+** from https://www.postgresql.org/download/
+3. Install **Microsoft Outlook** on workstations that will send emails
 
-3. **Initialize the system**:
-   ```bash
-   python main.py init
-   ```
+### Build the Solution
 
-   This will create:
-   - `contacts.xlsx` - Contact database with sample data
-   - `templates/` - Email template directory (already populated)
-   - `logs/` - Log file directory
-   - `config.yaml` - Configuration file (already exists)
+```powershell
+# Clone the repository
+git clone <repository-url>
+cd LeadGenerator
 
-## Outlook Setup
+# Restore dependencies
+dotnet restore
 
-The application connects to Microsoft Outlook using COM automation. **See [OUTLOOK_SETUP.md](OUTLOOK_SETUP.md) for detailed configuration instructions**, including:
-- How to verify Outlook connection
-- Which email account is used
-- Where Outlook is configured in the code
-- Complete list of API calls
-- Troubleshooting connection issues
+# Build the solution
+dotnet build LeadGenerator.sln -c Release
 
-### Quick Outlook Checklist
-- ✓ Outlook is installed and running
-- ✓ At least one email account is configured in Outlook
-- ✓ Default email account is set (File > Account Settings)
-- ✓ `pywin32` is installed: `pip install pywin32`
-
-**Testing the Connection:**
-```python
-from src.outlook_manager import OutlookManager
-outlook = OutlookManager()  # Should connect without errors
+# Publish all projects
+dotnet publish src/LeadGenerator.Api -c Release -o ./publish/Api
+dotnet publish src/LeadGenerator.MailService -c Release -o ./publish/MailService
+dotnet publish src/LeadGenerator.Desktop -c Release -o ./publish/Desktop
 ```
 
-See logs for connection details: `grep "\[OUTLOOK API\]" logs/sequence.log`
+### Database Setup
 
----
+```powershell
+# Run as postgres superuser
+psql -U postgres -f scripts/database/001_create_database.sql
+
+# Run as leadgen_user
+psql -U leadgen_user -d leadgenerator -f scripts/database/002_create_tables.sql
+psql -U leadgen_user -d leadgenerator -f scripts/database/003_seed_admin_user.sql
+psql -U leadgen_user -d leadgenerator -f scripts/database/004_create_indexes.sql
+```
+
+### Install API Server
+
+```powershell
+# Run as Administrator
+cd scripts/install
+.\install-all.ps1 -ServerName "localhost" -DatabasePassword "YourPassword" -ApiServerUrl "http://localhost:5000"
+```
+
+### Install Mail Service (on each workstation)
+
+```powershell
+# Run as Administrator
+cd scripts/install
+.\install-mailservice.ps1 -ApiServerUrl "http://your-server:5000" -WorkstationId "WORKSTATION-01"
+```
+
+### Install Desktop Client (on each workstation)
+
+```powershell
+cd scripts/install
+.\install-desktop.ps1 -ApiServerUrl "http://your-server:5000"
+```
 
 ## Configuration
 
-Edit `config.yaml` to customize your settings:
+### API Server (appsettings.json)
 
-```yaml
-# Email settings
-sender_name: "Your Name"
-default_subject: "Your Subject Line"
-
-# Sequence timing (in days)
-followup_delays:
-  - 3    # Days after initial send for followup_1
-  - 7    # Days after initial send for followup_2
-  - 14   # Days after initial send for followup_3
-  - 21   # Days after initial send for followup_4
-
-max_followups: 4   # Now supports 4 follow-ups (5 total emails)
-
-# Safety settings
-send_delay_seconds: 5        # Pause between emails
-dry_run: false               # Set to true for testing
-
-# Email sending options
-default_send_mode: "send"    # "send", "msg_file", or "defer"
-msg_output_folder: "msg_files"  # Folder for .msg files
-default_defer_hours: 1       # Hours to defer when using defer mode
-
-# Campaign ID tracking
-campaign_id_state_file: "campaign_id_state.json"  # Tracks unique email IDs
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=leadgenerator;Username=leadgen_user;Password=YourPassword"
+  },
+  "Jwt": {
+    "Key": "YourSuperSecretKeyAtLeast32Characters!",
+    "ExpirationMinutes": 480
+  },
+  "FileStorage": {
+    "BasePath": "C:\\LeadGenerator\\Files"
+  }
+}
 ```
 
-## Unique Email ID System
+### Mail Service (appsettings.json)
 
-Each email sent by the system receives a unique tracking ID in the format **Lxxxxxx-y**:
-- **L**: Literal prefix
-- **xxxxxx**: 6-digit sequential number (000001 to 999999, supports 2 years of campaigns)
-- **y**: Email sequence number (1=initial, 2=followup_1, 3=followup_2, 4=followup_3, 5=followup_4)
-
-**Example IDs:**
-- `L000123-1` - Initial email, 123rd email sent
-- `L000124-2` - Follow-up 1, 124th email sent
-- `L000125-5` - Follow-up 4, 125th email sent
-
-The ID is automatically appended to the email subject line: `Your Subject [L000123-1]`
-
-This allows for:
-- Unique tracking of each email
-- Easy identification of which email in the sequence
-- Campaign analytics and monitoring
+```json
+{
+  "ApiBaseUrl": "http://your-server:5000",
+  "WorkstationId": "WORKSTATION-01",
+  "ScanIntervalSeconds": 60
+}
 ```
 
-## Email Sending Options
+## Default Credentials
 
-The system supports three different modes for sending emails:
+**Username:** admin
+**Password:** Admin123!
 
-### 1. Send Immediately (default)
-Emails are sent immediately via Outlook. This is the standard behavior.
-
-```yaml
-default_send_mode: "send"
-```
-
-### 2. Save as .msg File
-Instead of sending, emails are saved as .msg files in the specified folder. This allows you to:
-- Review emails before sending
-- Manually send them from Outlook
-- Archive drafts for compliance
-
-```yaml
-default_send_mode: "msg_file"
-msg_output_folder: "msg_files"  # Folder where .msg files will be saved
-```
-
-The system will create one .msg file per email with the filename format: `YYYYMMDD_HHMMSS_recipient@email.com.msg`
-
-### 3. Defer Sending
-Emails are created with Outlook's deferred delivery feature, scheduling them to be sent after a specified number of hours. This is useful for:
-- Sending emails during business hours even if you prepare them at night
-- Spreading out email sends to avoid spam detection
-- Time zone management
-
-```yaml
-default_send_mode: "defer"
-default_defer_hours: 1  # Send 1 hour from now
-```
-
-**Note**: When using GUI, you can override the default send mode for individual contacts or operations.
+**⚠️ IMPORTANT: Change the admin password immediately after first login!**
 
 ## Usage
 
-### 1. Add Contacts
+1. **Login**: Launch the desktop client and login with admin credentials
+2. **Create Mail Accounts**: Settings → Mail Accounts → Add mail accounts for each Outlook profile
+3. **Import Contacts**: Create a contact list and import contacts from CSV
+4. **Create Campaign**: Create a new campaign and define email sequence steps
+5. **Activate Campaign**: Start the campaign to begin sending emails
+6. **Monitor Results**: View reports and statistics in the Reports section
 
-Edit `contacts.xlsx` and add your contacts with the following required fields:
-- `title` - Mr, Ms, Dr, etc.
-- `first_name` - First name
-- `last_name` - Last name
-- `email` - Email address
-- `company` - Company name
+## API Documentation
 
-Set `status` to `pending` for contacts you want to include in the sequence.
+Once the API server is running, access the Swagger documentation at:
 
-Or add contacts via command line:
-```bash
-python main.py add --email "john@company.com" --first-name "John" --last-name "Doe" --company "Acme Corp" --status "pending"
+```
+http://localhost:5000/swagger
 ```
 
-**Status Options:**
-You can add contacts with any status to control when they enter the sequence:
-- `pending` (default) - Ready to receive initial email
-- `sent` - Already sent initial email (will receive follow-ups if needed)
-- `followup_1`, `followup_2`, `followup_3` - Already in follow-up sequence
-- `replied` - Contact has replied (will not receive further emails)
-- `opted_out` - Contact has opted out (will not receive further emails)
+## Key Endpoints
 
-### 2. Customize Email Templates
+- `POST /api/auth/login` - Authenticate and get JWT token
+- `GET /api/version` - Get application version information
+- `GET /api/version/health` - Get API health status
+- `GET /api/campaigns` - List all campaigns
+- `POST /api/campaigns` - Create new campaign
+- `GET /api/contacts/list/{listId}` - Get contacts for a list
+- `POST /api/contacts/import/{listId}` - Import contacts from CSV
+- `GET /api/reports/campaign/{campaignId}` - Get campaign statistics
 
-Edit templates in the `templates/` folder:
-- `initial.html` - First email
-- `followup_1.html` - First follow-up (sent after 3 days)
-- `followup_2.html` - Second follow-up (sent after 7 days)
-- `followup_3.html` - Third follow-up (sent after 14 days)
+## Version Information
 
-**Available placeholders**:
-- `{title}` - Mr, Ms, Dr, etc.
-- `{first_name}` - Contact's first name
-- `{last_name}` - Contact's last name
-- `{full_name}` - Full name (first + last)
-- `{email}` - Contact's email
-- `{company}` - Company name
-- `{sender_name}` - Your name from config
+### Version Format
 
-### 3. Test Your Sequence (Dry Run)
+Versions follow the format: **YYMMDD-x**
 
-```bash
-python main.py send --dry-run
-```
+- `YY` = Last two digits of the year
+- `MM` = Month (01-12)
+- `DD` = Day (01-31)
+- `x` = Build number for that day (starting at 1)
 
-This will open emails in Outlook without sending them. Review each email before going live.
+Example: `260128-2` = January 28, 2026, Build 2
 
-### 4. Send Initial Emails
+### Viewing Version
 
-```bash
-python main.py send
-```
+- **Desktop Client**: Help → About menu displays current version and system information
+- **API Server**: Access `/api/version` endpoint for detailed version information
+- **CHANGELOG**: See `CHANGELOG.md` for version history and changes between releases
 
-This sends the initial email to all contacts with `status=pending`.
+### Changelog
 
-### 5. Check for Replies
+All version changes are documented in the `CHANGELOG.md` file. Each version entry includes:
+- Added features
+- Changed functionality
+- Fixed bugs
+- Breaking changes (if any)
 
-```bash
-python main.py check
-```
+## Security Features
 
-Scans your Outlook inbox for replies and updates contact statuses.
+- JWT token-based authentication
+- BCrypt password hashing
+- Role-based authorization
+- Account lockout after failed login attempts
+- Internal network only (no public exposure)
+- Audit logging for security events
 
-### 6. Send Follow-ups
+## Campaign Reference Format
 
-```bash
-python main.py followup
-```
+All campaigns are identified by a unique reference in the format: **ISIT-YYNNN**
 
-Sends follow-up emails to contacts who haven't replied, based on the timing in `config.yaml`.
+Example: `ISIT-26001`
 
-### 7. Run Full Cycle
+This reference is automatically added to email subjects for tracking replies and unsubscribes.
 
-```bash
-python main.py cycle
-```
+## Unsubscribe Detection
 
-Combines steps 5 and 6: checks for replies, then sends follow-ups. **Use this for scheduled tasks.**
+The system automatically detects unsubscribe requests using keywords in email replies:
 
-### 8. View Status
-
-```bash
-python main.py status
-```
-
-Shows a summary of your sequence:
-- Total contacts
-- Breakdown by status
-- Reply rate
-- Last activity
-
-## CLI Commands Reference
-
-| Command | Description |
-|---------|-------------|
-| `python main.py init` | Initialize system (create files and folders) |
-| `python main.py send [--dry-run]` | Send initial emails to pending contacts |
-| `python main.py check` | Check inbox for replies |
-| `python main.py followup [--dry-run]` | Send follow-ups to non-responders |
-| `python main.py cycle` | Run full cycle (check + followup) |
-| `python main.py status` | Show status report |
-| `python main.py add` | Add a new contact |
-| `python main.py optout --email <email>` | Mark contact as opted-out |
-| `python main.py reset --email <email>` | Reset contact to pending |
-| `python main.py templates` | List available templates |
-
-## Contact Status Values
-
-- `pending` - Not yet contacted
-- `sent` - Initial email sent, awaiting reply
-- `followup_1` - First follow-up sent
-- `followup_2` - Second follow-up sent
-- `followup_3` - Third follow-up sent
-- `replied` - Contact replied (sequence complete)
-- `bounced` - Email failed to send
-- `opted_out` - Contact requested removal
-- `completed` - Max follow-ups reached, no reply
-
-## Automation with Windows Task Scheduler
-
-To run the cycle automatically every 30 minutes:
-
-### Option 1: PowerShell Script
-
-1. Create a PowerShell script (e.g., `run_cycle.ps1`):
-   ```powershell
-   cd "C:\path\to\EmailSequence"
-   python main.py cycle
-   ```
-
-2. Create scheduled task:
-   ```powershell
-   $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File C:\path\to\EmailSequence\run_cycle.ps1" -WorkingDirectory "C:\path\to\EmailSequence"
-   $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration ([TimeSpan]::MaxValue)
-   $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopOnIdleEnd
-   Register-ScheduledTask -TaskName "EmailSequenceCycle" -Action $Action -Trigger $Trigger -Settings $Settings -Description "Check replies and send follow-ups"
-   ```
-
-### Option 2: Using Task Scheduler GUI
-
-1. Open Task Scheduler
-2. Create Basic Task
-3. Name: "Email Sequence Cycle"
-4. Trigger: Daily, repeat every 30 minutes
-5. Action: Start a program
-   - Program: `python`
-   - Arguments: `main.py cycle`
-   - Start in: `C:\path\to\EmailSequence`
+**English:** UNSUBSCRIBE, STOP, REMOVE, OPT OUT, OPT-OUT
+**French:** DÉSINSCRIRE, DÉSINSCRIPTION, STOP, ARRÊTER, SUPPRIMER
 
 ## Troubleshooting
 
-### Outlook Security Prompt
+### API Server Not Starting
 
-If you see a security prompt when sending emails:
+- Check PostgreSQL is running: `sc query postgresql-x64-15`
+- Verify connection string in appsettings.json
+- Check logs in `C:\LeadGenerator\Logs`
 
-1. **Allow access**: Click "Allow" and "Allow access for 10 minutes"
-2. **Disable prompt** (if using your own computer):
-   - Add this registry key (requires admin):
-     ```
-     [HKEY_CURRENT_USER\Software\Microsoft\Office\16.0\Outlook\Security]
-     "PromptOOMSend"=dword:00000000
-     ```
+### Mail Service Not Sending Emails
 
-### Excel File Locked
+- Ensure Outlook is installed and configured on the workstation
+- Verify the service is running as a user with Outlook access
+- Check workstation ID matches mail account assignment
+- Review logs in `C:\LeadGenerator\MailService\logs`
 
-If you get "file is locked" errors:
-- Close `contacts.xlsx` in Excel before running commands
-- The system will retry once automatically after 5 seconds
+### Desktop Client Cannot Connect
 
-### No Replies Detected
+- Verify API server URL in appsettings.json
+- Test API health: `Invoke-RestMethod -Uri "http://your-server:5000/health"`
+- Check firewall settings
 
-- Check that `inbox_scan_days` in config.yaml is long enough
-- Verify the contact is replying to the same email thread
-- Check Outlook inbox manually to confirm the reply exists
+## Development
 
-### Import Errors
+### Running in Development
 
-If you get import errors when running Python:
-```bash
-pip install --upgrade -r requirements.txt
-```
-
-## Best Practices
-
-1. **Start with dry run**: Always test with `--dry-run` first
-2. **Small batches**: Start with 5-10 contacts to test the flow
-3. **Personalize templates**: Generic emails get lower response rates
-4. **Respect opt-outs**: Always honor unsubscribe requests
-5. **Monitor logs**: Check `logs/sequence.log` regularly
-6. **Backup contacts**: Keep a backup of `contacts.xlsx`
-7. **Professional tone**: Keep emails professional and respectful
-
-## Graphical User Interface (GUI)
-
-The system includes a modern GUI for managing campaigns, contacts, templates, and email sequences.
-
-### Starting the GUI
-
-```bash
-python gui_app.py
-```
-
-### GUI Features
-
-#### 1. Dashboard
-- Overview of active campaign and email sequence statistics
-- Quick access to common operations
-- Real-time status updates
-
-#### 2. Contacts Management
-- View and edit contacts in a searchable, filterable table
-- Add new contacts with custom status selection
-- Import contacts from CSV with column mapping
-- Filter contacts by status (pending, sent, followup_1-4, replied, etc.)
-- Send individual emails with custom sending options
-
-#### 3. Sequence Control
-- Start/stop email sequences
-- Send initial emails and follow-ups
-- Check for replies
-- Run full cycles (check + followup)
-- Override default sending mode per operation
-
-#### 4. Templates Editor
-- View and edit all email templates
-- Live HTML preview
-- Syntax highlighting
-- Template validation
-- Access to templates library
-
-#### 5. **Campaign Management** ⭐
-Complete campaign lifecycle management with:
-
-**Campaign Features:**
-- **Create New Campaigns**: Set up isolated campaigns with unique contacts and templates
-- **Switch Active Campaign**: Easily switch between different campaigns using the dropdown selector
-- **Import/Export Campaigns**: Share campaigns via ZIP files
-- **Template Library**: Shared template repository accessible to all campaigns
-
-**Campaign Structure:**
-Each campaign has its own isolated folder:
-```
-campaigns/
-├── My_Campaign_1/
-│   ├── contacts.xlsx          # Campaign-specific contacts
-│   ├── templates/             # Campaign-specific templates
-│   │   ├── initial.html
-│   │   ├── followup_1.html
-│   │   ├── followup_2.html
-│   │   ├── followup_3.html
-│   │   └── followup_4.html
-│   ├── logs/                  # Campaign-specific logs
-│   ├── campaign_config.yaml   # Campaign configuration
-│   └── campaign_id_state.json # Email ID tracking
-├── My_Campaign_2/
-│   └── ...
-└── campaigns_state.json       # Active campaign tracker
-```
-
-**Creating a Campaign:**
-1. Navigate to "Campaigns" tab in GUI
-2. Click "+ New Campaign"
-3. Enter campaign details:
-   - Campaign name
-   - Sender name
-   - Default subject line
-   - Optionally copy templates from existing campaign
-4. Campaign folder is automatically created with all necessary files
-
-**Switching Campaigns:**
-Use the dropdown selector in the sidebar to switch between campaigns. All frames (Contacts, Sequence, Templates) will automatically use the active campaign's data.
-
-**Import/Export:**
-- **Export**: Select campaign → Export to ZIP file (includes all contacts, templates, and config)
-- **Import**: Import ZIP file → Automatically extracts to new campaign folder
-
-**Templates Library:**
-- Shared folder (`templates_library/`) for reusable templates
-- Browse library from Campaigns tab
-- Add new templates to library
-- Copy templates from library to any campaign
-- Great for maintaining standard templates across multiple campaigns
-
-#### 6. Logs Viewer
-- Real-time log viewing with filtering
-- Search logs by keyword or operation type
-- Export logs to file
-- Clear old logs
-
-#### 7. Settings
-- Configure email sending options
-- Adjust sequence timing
-- Set reply detection parameters
-- Customize GUI appearance
-- Edit configuration files
-
-### Email Sending Options in GUI
-
-When sending emails through the GUI, you can choose between three modes:
-
-1. **Send Immediately**: Email is sent right away via Outlook
-2. **Save as .msg File**: Email is saved for manual review/sending later
-3. **Defer Send**: Email is scheduled to send after X hours
-
-These options override the default sending mode configured in `config.yaml`.
-
-### Campaign Selector
-
-The **Active Campaign** dropdown in the sidebar shows:
-- Currently active campaign name
-- List of all available campaigns
-- Quick switching between campaigns
-
-When you switch campaigns, all data (contacts, templates, sequences) automatically updates to use the new campaign's resources.
-
-### Keyboard Shortcuts
-
-- `Ctrl+N`: New contact
-- `Ctrl+S`: Save changes
-- `Ctrl+F`: Search/filter
-- `Ctrl+R`: Refresh current view
-- `F5`: Run sequence cycle
-
-## Logging
-
-The application provides **comprehensive logging** of all operations. All activity is logged to `logs/sequence.log`.
-
-### What is Logged
-
-The system logs all major operations with detailed prefixes:
-
-| Prefix | What It Logs |
-|--------|--------------|
-| `[OUTLOOK API]` | All Outlook COM API calls (connection, sending, inbox scanning) |
-| `[FILE READ]` | File read operations with absolute paths and file sizes |
-| `[FILE WRITE]` | File write operations with absolute paths and bytes written |
-| `[FILE CREATE]` | New file creation operations |
-| `[QUERY]` | Database queries (contact lookups, filters) |
-| `[UPDATE]` | Contact record updates |
-| `[ADD]` | New contact additions |
-| `[RENDER]` | Email template rendering operations |
-| `[TEMPLATES]` | Template engine initialization and discovery |
-
-### Example Log Output
-
-```
-2026-01-18 10:30:15 - INFO - [OUTLOOK API] Successfully connected to Outlook version 16.0
-2026-01-18 10:30:20 - INFO - [FILE READ] Loaded 25 contacts from C:\email-sequence\contacts.xlsx
-2026-01-18 10:30:30 - INFO - [TEMPLATES] Found 4 templates: followup_1, followup_2, followup_3, initial
-2026-01-18 10:30:40 - INFO - [OUTLOOK API] Email sent successfully to john@company.com
-2026-01-18 10:30:45 - INFO - [FILE WRITE] Successfully saved to C:\email-sequence\contacts.xlsx (12345 bytes)
-```
-
-### Viewing Logs
-
-**Real-time monitoring (PowerShell):**
 ```powershell
-Get-Content -Path "logs\sequence.log" -Wait -Tail 50
+# API Server
+cd src/LeadGenerator.Api
+dotnet run
+
+# Desktop Client
+cd src/LeadGenerator.Desktop
+dotnet run
+
+# Mail Service
+cd src/LeadGenerator.MailService
+dotnet run
 ```
 
-**Filter by operation type:**
-```bash
-# Show only Outlook API calls
-grep "\[OUTLOOK API\]" logs/sequence.log
+### Database Migrations
 
-# Show only file operations
-grep "\[FILE" logs/sequence.log
+```powershell
+# Add migration
+cd src/LeadGenerator.Data
+dotnet ef migrations add MigrationName --startup-project ../LeadGenerator.Api
 
-# Show errors
-grep "ERROR" logs/sequence.log
+# Update database
+dotnet ef database update --startup-project ../LeadGenerator.Api
 ```
-
-### Files Read/Written
-
-The logs show **exact paths** for all file operations:
-- **Read:** `contacts.xlsx`, `templates/*.html`, configuration files
-- **Written:** `contacts.xlsx`, `logs/sequence.log`, `.msg` files in `msg_files/`
-
-All paths are logged as **absolute paths** for easy verification.
-
-## Data Privacy
-
-- No credentials are stored (uses Outlook's existing authentication)
-- `contacts.xlsx` contains personal information - keep it secure
-- Consider encrypting the Excel file if it contains sensitive data
-- Rotate/delete logs periodically
-
-## Support
-
-For issues or questions:
-1. Check the logs in `logs/sequence.log`
-2. Run commands with `-v` flag for verbose output
-3. Ensure Outlook is running and configured properly
 
 ## License
 
-This is a custom tool built for internal use. Modify as needed for your requirements.
+Proprietary - All rights reserved
 
-## Version
+## Support
 
-Current Version: 1.0.0
+For issues and questions, please contact your system administrator.
+
+---
+
+Built with ❤️ using .NET 8 and PostgreSQL
