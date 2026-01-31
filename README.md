@@ -87,6 +87,8 @@ LeadGenerator/
 
 ### Quick Build (Recommended)
 
+**⚠️ First Time Only:** If you get "cannot be loaded" errors, run `setup.bat` first to unblock PowerShell scripts. See `EXECUTION_POLICY.md` for details.
+
 **Using the Makefile-style build system:**
 
 ```powershell

@@ -29,6 +29,46 @@ Before you begin, ensure you have the following installed:
 
 ---
 
+## ⚠️ FIRST TIME SETUP - Fix PowerShell Execution Policy
+
+**If this is your first time**, Windows will block PowerShell scripts by default. You'll see an error like:
+
+```
+File cannot be loaded. The file is not digitally signed.
+```
+
+### Quick Fix (Choose One):
+
+**Option A: Run Setup Script (Easiest)**
+
+Simply double-click `setup.bat` or run:
+
+```cmd
+setup.bat
+```
+
+This will unblock all PowerShell scripts automatically.
+
+**Option B: Manual Unblock (PowerShell)**
+
+```powershell
+# Open PowerShell as Administrator
+cd path\to\EmailSequence
+
+# Unblock all scripts
+Get-ChildItem -Recurse -Filter "*.ps1" | Unblock-File
+```
+
+**Option C: Bypass for Current Session**
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+📖 **For detailed instructions and troubleshooting, see:** `EXECUTION_POLICY.md`
+
+---
+
 ## 🚀 Quick Installation (Automated)
 
 The easiest way to build and install everything:
