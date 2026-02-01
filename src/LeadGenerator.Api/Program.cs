@@ -8,15 +8,18 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog
+// Serilog - configured from appsettings.json
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/api-.log", rollingInterval: RollingInterval.Day)
+    .Enrich.WithProperty("Application", "LeadGenerator.Api")
     .CreateLogger();
 
 builder.Host.UseSerilog();
+
+Log.Information("=== Lead Generator API Starting ===");
+Log.Information("Environment: {Environment}", builder.Environment.EnvironmentName);
+Log.Information("Log files location: logs/api/");
 
 // Database
 builder.Services.AddDbContext<LeadGenDbContext>(options =>
@@ -104,6 +107,23 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("InternalNetwork");
+
+// Request logging middleware
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+        diagnosticContext.Set("UserAgent", httpContext.Request.Headers["User-Agent"].FirstOrDefault());
+        diagnosticContext.Set("ClientIP", httpContext.Connection.RemoteIpAddress?.ToString());
+        if (httpContext.User.Identity?.IsAuthenticated == true)
+        {
+            diagnosticContext.Set("Username", httpContext.User.Identity.Name);
+        }
+    };
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
@@ -111,5 +131,6 @@ app.MapControllers();
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
-Log.Information("Lead Generator API starting...");
+Log.Information("=== Lead Generator API Started Successfully ===");
+Log.Information("API listening on configured URLs");
 app.Run();

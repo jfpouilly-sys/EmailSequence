@@ -34,19 +34,66 @@ from ui.views.settings_view import SettingsView
 
 
 def setup_logging(config: dict) -> None:
-    """Configure logging based on config."""
+    """Configure logging based on config with multiple handlers."""
+    from logging.handlers import RotatingFileHandler
+
     log_config = config.get('logging', {})
     log_level = getattr(logging, log_config.get('level', 'INFO').upper(), logging.INFO)
-    log_file = log_config.get('file', 'leadgenerator.log')
+    log_dir = Path(log_config.get('directory', 'logs/gui'))
+    max_bytes = log_config.get('max_bytes', 10485760)
+    backup_count = log_config.get('backup_count', 10)
+    log_format = log_config.get('format', '%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    date_format = log_config.get('date_format', '%Y-%m-%d %H:%M:%S')
 
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding='utf-8')
-        ]
+    # Create log directory
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create formatter
+    formatter = logging.Formatter(log_format, datefmt=date_format)
+
+    # Root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    # Main log file (all messages)
+    main_log = log_dir / log_config.get('main_log', 'gui.log')
+    main_handler = RotatingFileHandler(
+        main_log, maxBytes=max_bytes, backupCount=backup_count, encoding='utf-8'
     )
+    main_handler.setLevel(log_level)
+    main_handler.setFormatter(formatter)
+    root_logger.addHandler(main_handler)
+
+    # Error log file (errors only)
+    error_log = log_dir / log_config.get('error_log', 'gui-errors.log')
+    error_handler = RotatingFileHandler(
+        error_log, maxBytes=max_bytes, backupCount=backup_count, encoding='utf-8'
+    )
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(formatter)
+    root_logger.addHandler(error_handler)
+
+    # API calls log (separate logger)
+    api_logger = logging.getLogger('api_calls')
+    api_log = log_dir / log_config.get('api_log', 'api-calls.log')
+    api_handler = RotatingFileHandler(
+        api_log, maxBytes=max_bytes, backupCount=backup_count, encoding='utf-8'
+    )
+    api_handler.setLevel(logging.DEBUG)
+    api_handler.setFormatter(logging.Formatter(
+        '%(asctime)s | %(levelname)s | %(message)s', datefmt=date_format
+    ))
+    api_logger.addHandler(api_handler)
+
+    logging.info(f"=== Lead Generator GUI Logging Initialized ===")
+    logging.info(f"Log directory: {log_dir.absolute()}")
+    logging.info(f"Log level: {logging.getLevelName(log_level)}")
 
 
 def load_config() -> dict:

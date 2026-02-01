@@ -16,6 +16,11 @@ ui:
 
 logging:
   level: "INFO"
-  file: "leadgenerator.log"
+  directory: "logs/gui"
+  main_log: "gui.log"
+  error_log: "gui-errors.log"
+  api_log: "api-calls.log"
   max_bytes: 10485760
-  backup_count: 5
+  backup_count: 10
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"

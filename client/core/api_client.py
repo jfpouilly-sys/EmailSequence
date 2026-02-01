@@ -19,6 +19,7 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+api_call_logger = logging.getLogger('api_calls')
 
 T = TypeVar('T')
 
@@ -119,11 +120,16 @@ class ApiClient:
         files: Optional[Dict] = None
     ) -> Any:
         """Make an HTTP request to the API."""
+        import time
         url = f"{self.base_url}{endpoint}"
         headers = self._get_headers()
 
         if files:
             headers.pop("Content-Type", None)
+
+        # Log API call
+        api_call_logger.info(f"REQUEST  | {method} {endpoint} | params={params}")
+        start_time = time.time()
 
         try:
             response = self.session.request(
@@ -136,21 +142,31 @@ class ApiClient:
                 files=files,
                 timeout=self.timeout
             )
+
+            elapsed = (time.time() - start_time) * 1000
+            api_call_logger.info(f"RESPONSE | {method} {endpoint} | {response.status_code} | {elapsed:.0f}ms")
+
             return self._handle_response(response)
 
         except requests.exceptions.ConnectionError as e:
+            elapsed = (time.time() - start_time) * 1000
+            api_call_logger.error(f"ERROR    | {method} {endpoint} | ConnectionError | {elapsed:.0f}ms")
             logger.error(f"Connection error: {e}")
             raise ConnectionError(
                 "Failed to connect to server. Please check your network connection.",
                 details=str(e)
             )
         except requests.exceptions.Timeout as e:
+            elapsed = (time.time() - start_time) * 1000
+            api_call_logger.error(f"ERROR    | {method} {endpoint} | Timeout | {elapsed:.0f}ms")
             logger.error(f"Request timeout: {e}")
             raise ConnectionError(
                 "Request timed out. Please try again.",
                 details=str(e)
             )
         except requests.exceptions.RequestException as e:
+            elapsed = (time.time() - start_time) * 1000
+            api_call_logger.error(f"ERROR    | {method} {endpoint} | {type(e).__name__} | {elapsed:.0f}ms")
             logger.error(f"Request error: {e}")
             raise ApiError(f"Request failed: {str(e)}")
 
