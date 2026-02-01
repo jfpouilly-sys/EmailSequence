@@ -16,6 +16,19 @@ echo.
 
 cd /d "%~dp0"
 
+REM Verify we're in the right directory
+if not exist "main.py" (
+    echo ERROR: main.py not found in current directory!
+    echo Current directory: %CD%
+    echo.
+    echo Please run this script from the client folder:
+    echo   cd path\to\EmailSequence\client
+    echo   build.bat %TARGET%
+    echo.
+    pause
+    exit /b 1
+)
+
 if "%TARGET%"=="install" goto :install
 if "%TARGET%"=="build" goto :build
 if "%TARGET%"=="clean" goto :clean
