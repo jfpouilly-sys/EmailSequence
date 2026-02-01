@@ -20,17 +20,7 @@ builder.Host.UseSerilog();
 
 // Database
 builder.Services.AddDbContext<LeadGenDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        npgsqlOptions => npgsqlOptions.MapEnum<LeadGenerator.Core.Enums.UserRole>("user_role")
-            .MapEnum<LeadGenerator.Core.Enums.CampaignStatus>("campaign_status")
-            .MapEnum<LeadGenerator.Core.Enums.ContactStatus>("contact_status")
-            .MapEnum<LeadGenerator.Core.Enums.DeliveryMode>("delivery_mode")
-            .MapEnum<LeadGenerator.Core.Enums.UnsubscribeScope>("unsubscribe_scope")
-            .MapEnum<LeadGenerator.Core.Enums.UnsubscribeSource>("unsubscribe_source")
-            .MapEnum<LeadGenerator.Core.Enums.ABTestElement>("ab_test_element")
-            .MapEnum<LeadGenerator.Core.Enums.ABTestStatus>("ab_test_status")
-    ));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");

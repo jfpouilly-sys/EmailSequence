@@ -85,7 +85,37 @@ LeadGenerator/
 2. Install **PostgreSQL 15+** from https://www.postgresql.org/download/
 3. Install **Microsoft Outlook** on workstations that will send emails
 
-### Build the Solution
+### Quick Build (Recommended)
+
+**⚠️ First Time Only:** If you get "cannot be loaded" errors, run `setup.bat` first to unblock PowerShell scripts. See `EXECUTION_POLICY.md` for details.
+
+**Using the Makefile-style build system:**
+
+```powershell
+# Show available commands
+.\build.ps1 -Target help
+
+# Complete build and installation (interactive)
+.\build.ps1 -Target install-all
+
+# Or using batch launcher
+make help
+make install-all
+```
+
+**Or build step-by-step:**
+
+```powershell
+# Clean, build, and publish
+.\build.ps1 -Target publish
+
+# Setup database
+.\build.ps1 -Target database-setup -DatabasePassword "YourPassword"
+```
+
+See `QUICKSTART.md` for detailed first-time installation guide.
+
+### Manual Build (Alternative)
 
 ```powershell
 # Clone the repository

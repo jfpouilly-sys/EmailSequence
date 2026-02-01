@@ -8,6 +8,11 @@
         <vm:MainViewModel/>
     </Window.DataContext>
 
+    <Window.Resources>
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#2196F3"/>
+        <SolidColorBrush x:Key="BackgroundBrush" Color="#F5F5F5"/>
+    </Window.Resources>
+
     <DockPanel>
         <!-- Menu Bar -->
         <Menu DockPanel.Dock="Top">
