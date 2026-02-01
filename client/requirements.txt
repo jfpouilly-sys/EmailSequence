@@ -1,0 +1,29 @@
+# GUI Framework
+ttkbootstrap>=1.10.1
+
+# HTTP Client
+requests>=2.31.0
+
+# Data Processing
+pandas>=2.0.0
+
+# Charts
+matplotlib>=3.7.0
+
+# PDF Export
+fpdf2>=2.7.0
+
+# Windows Integration (optional - for mail worker)
+pywin32>=306; sys_platform == 'win32'
+
+# Secure Token Storage
+keyring>=24.0.0
+
+# Background Scheduling
+schedule>=1.2.0
+
+# Configuration
+pyyaml>=6.0.0
+
+# Packaging
+pyinstaller>=6.0.0
