@@ -10,6 +10,98 @@ Version format: `YYMMDD-x` where:
 
 ---
 
+## [260202-2] - 2026-02-02
+
+### Changed
+- **BREAKING**: Upgraded all projects from .NET 8.0 to .NET 10.0
+- Updated all NuGet packages to latest compatible versions:
+
+| Package | Old Version | New Version |
+|---------|-------------|-------------|
+| Microsoft.EntityFrameworkCore | 8.0.0 | 10.0.0 |
+| Microsoft.AspNetCore.Authentication.JwtBearer | 8.0.0 | 10.0.0 |
+| Npgsql.EntityFrameworkCore.PostgreSQL | 8.0.0 | 10.0.0 |
+| Microsoft.Extensions.Hosting | 8.0.0 | 10.0.0 |
+| Microsoft.Extensions.Hosting.WindowsServices | 8.0.0 | 10.0.0 |
+| Microsoft.Extensions.Http | 8.0.0 | 10.0.0 |
+| Microsoft.Extensions.Configuration | 8.0.0 | 10.0.0 |
+| Microsoft.Extensions.DependencyInjection | 8.0.0 | 10.0.0 |
+| Serilog.AspNetCore | 8.0.0 | 9.0.0 |
+| Serilog.Extensions.Hosting | 8.0.0 | 9.0.0 |
+| Serilog.Settings.Configuration | 8.0.0 | 9.0.0 |
+| Serilog.Enrichers.Environment | 2.3.0 | 3.0.1 |
+| Serilog.Enrichers.Thread | 3.1.0 | 4.0.0 |
+| Serilog.Sinks.Console | 5.0.0 | 6.0.0 |
+| Serilog.Sinks.File | 5.0.0 | 6.0.0 |
+| Swashbuckle.AspNetCore | 6.5.0 | 7.2.0 |
+| CsvHelper | 30.0.1 | 33.0.1 |
+| CommunityToolkit.Mvvm | 8.2.2 | 8.4.0 |
+
+### Requirements
+- .NET 10.0 SDK/Runtime required (previously .NET 8.0)
+
+---
+
+## [260202-1] - 2026-02-02
+
+### Added
+- **Python Tkinter GUI Client** (`client/` folder)
+  - Full-featured desktop client using ttkbootstrap framework
+  - Login view with JWT authentication
+  - Dashboard with KPI cards and active campaigns
+  - Campaign management (create, edit, activate, pause, delete)
+  - Contact management with search and filtering
+  - CSV import wizard with field mapping and validation
+  - Template editor with merge tags picker and live preview
+  - Reports view with matplotlib charts
+  - Admin views: user management, mail accounts, suppression list
+  - Settings view with theme selection (15+ themes)
+  - Comprehensive error handling and status feedback
+
+- **Comprehensive Logging System**
+  - API logs: `logs/api/api-YYYYMMDD.log`, `logs/api/api-errors-YYYYMMDD.log`
+  - Mail Service logs: `logs/mailservice/mailservice-YYYYMMDD.log`
+  - GUI logs: `logs/gui/gui.log`, `logs/gui/gui-errors.log`, `logs/gui/api-calls.log`
+  - Structured logging with Serilog enrichers (MachineName, ThreadId)
+  - Request/response timing for all API calls
+  - HTTP request logging middleware in API
+  - Configurable log levels and retention periods
+
+- **System Diagnostic Scripts**
+  - `scripts/diagnostic.bat` - Windows batch diagnostic with colored output
+  - `scripts/diagnostic.py` - Cross-platform Python diagnostic with JSON output
+  - Checks: API health, database connection, PostgreSQL service, Mail Service
+  - Checks: network ports (5000, 5432), log directories, file storage
+  - Provides specific fix instructions for each failure
+  - Displays quick start commands and default credentials
+
+- **Backend Startup Scripts**
+  - `scripts/start-backend.bat` - Start API and Mail Service (PostgreSQL assumed running)
+  - `scripts/stop-backend.bat` - Stop all backend services
+  - `scripts/start-all.bat` - Start entire system including GUI
+  - Prerequisites checking (.NET SDK, PostgreSQL)
+  - Service health verification after startup
+
+- **GUI Build System**
+  - `client/build.bat` - Build executable with PyInstaller
+  - `client/run.bat` - Run with automatic dependency installation
+  - `client/LeadGenerator.pyw` - Double-click launcher (no console)
+  - `client/requirements.txt` - Python dependencies
+
+### Fixed
+- Added missing `Serilog.Settings.Configuration` package for `ReadFrom.Configuration()`
+- Added missing `Serilog.Enrichers.Environment` package for `WithMachineName` enricher
+- Added missing `Serilog.Enrichers.Thread` package for `WithThreadId` enricher
+- Fixed build.bat to verify main.py exists before building
+
+### Technical Details
+- GUI Client: Python 3.9+, ttkbootstrap, requests, pandas, matplotlib, fpdf2
+- API Client: REST with JWT Bearer authentication, retry logic, connection pooling
+- Data Models: Dataclasses matching .NET DTOs with proper serialization
+- Services: Campaign, Contact, Report, Template, CSV services
+
+---
+
 ## [260128-2] - 2026-01-28
 
 ### Added
