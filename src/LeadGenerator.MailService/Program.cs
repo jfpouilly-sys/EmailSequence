@@ -2,18 +2,27 @@ using LeadGenerator.Data;
 using LeadGenerator.MailService;
 using LeadGenerator.MailService.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .Build();
+
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File("logs/mailservice-.log", rollingInterval: RollingInterval.Day)
+    .ReadFrom.Configuration(configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "LeadGenerator.MailService")
     .CreateLogger();
 
 try
 {
-    Log.Information("Starting Lead Generator Mail Service");
+    Log.Information("=== Lead Generator Mail Service Starting ===");
+    Log.Information("Workstation: {WorkstationId}", configuration["WorkstationId"]);
+    Log.Information("Log files location: logs/mailservice/");
 
     var builder = Host.CreateApplicationBuilder(args);
 
