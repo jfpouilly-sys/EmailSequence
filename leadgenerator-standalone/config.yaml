@@ -1,0 +1,48 @@
+# Lead Generator Standalone Configuration
+
+app:
+  name: "Lead Generator Standalone"
+  version: "1.0.0"
+
+# Data paths
+data:
+  database_path: "./data/leadgen.db"
+  attachments_path: "./data/files"
+
+# Default sending configuration
+sending:
+  window_start: "09:00"
+  window_end: "17:00"
+  sending_days: "Mon,Tue,Wed,Thu,Fri"
+  daily_limit: 50
+  hourly_limit: 10
+  inter_email_delay_minutes: 30
+  sequence_step_delay_days: 3
+  randomization_minutes: 15
+
+# Outlook configuration
+outlook:
+  scan_interval_seconds: 60
+  scan_folders:
+    - "Inbox"
+    - "Unsubscribe"
+
+# Unsubscribe keywords
+unsubscribe:
+  keywords_en:
+    - "UNSUBSCRIBE"
+    - "STOP"
+    - "REMOVE"
+    - "OPT OUT"
+    - "OPT-OUT"
+  keywords_fr:
+    - "DÉSINSCRIRE"
+    - "DÉSINSCRIPTION"
+    - "STOP"
+    - "ARRÊTER"
+    - "SUPPRIMER"
+
+# UI Configuration
+ui:
+  theme: "cosmo"
+  refresh_interval_seconds: 30
