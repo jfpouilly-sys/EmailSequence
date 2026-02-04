@@ -112,10 +112,8 @@ class ContactListView(ttk.Frame):
 
         for contact_list in lists:
             self.lists_listbox.insert(tk.END, f"{contact_list.name} ({contact_list.contact_count})")
-            # Store list object reference
-            self.lists_listbox.itemconfig(tk.END, {'list_id': contact_list.list_id})
 
-        # Store lists for reference
+        # Store lists for reference (used by _on_list_select to map index to list object)
         self._lists = lists
 
     def refresh_contacts(self) -> None:
