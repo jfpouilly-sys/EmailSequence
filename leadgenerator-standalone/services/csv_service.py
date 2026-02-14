@@ -125,11 +125,12 @@ class CSVService:
             raise CSVImportError(f"File not found: {file_path}")
 
         try:
-            # Detect encoding
+            # Detect encoding and delimiter
             encoding = self._detect_encoding(file_path)
+            delimiter = self._detect_delimiter(file_path, encoding)
 
             # Read with pandas for robust handling
-            df = pd.read_csv(file_path, encoding=encoding, nrows=max_rows + 1)
+            df = pd.read_csv(file_path, encoding=encoding, sep=delimiter, nrows=max_rows + 1)
 
             headers = list(df.columns)
             preview_rows = df.head(max_rows).fillna('').values.tolist()
@@ -210,7 +211,8 @@ class CSVService:
 
         try:
             encoding = self._detect_encoding(file_path)
-            df = pd.read_csv(file_path, encoding=encoding)
+            delimiter = self._detect_delimiter(file_path, encoding)
+            df = pd.read_csv(file_path, encoding=encoding, sep=delimiter)
         except Exception as e:
             raise CSVImportError(f"Failed to read CSV file: {e}")
 
@@ -324,6 +326,37 @@ class CSVService:
                 continue
 
         return 'utf-8'  # Default fallback
+
+    def _detect_delimiter(self, file_path: Path, encoding: str) -> str:
+        """Detect CSV delimiter (comma, semicolon, or tab)."""
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                # Read first few lines to detect delimiter
+                sample = f.read(4096)
+
+            # Use csv.Sniffer to detect delimiter
+            try:
+                dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
+                return dialect.delimiter
+            except csv.Error:
+                pass
+
+            # Fallback: count occurrences in first line
+            first_line = sample.split('\n')[0] if sample else ''
+            delimiters = {',': 0, ';': 0, '\t': 0, '|': 0}
+
+            for delim in delimiters:
+                delimiters[delim] = first_line.count(delim)
+
+            # Return delimiter with most occurrences (minimum 1)
+            best_delim = max(delimiters, key=delimiters.get)
+            if delimiters[best_delim] > 0:
+                return best_delim
+
+        except Exception as e:
+            logger.warning(f"Delimiter detection failed: {e}")
+
+        return ','  # Default to comma
 
     def _row_to_contact_data(
         self,
