@@ -22,22 +22,31 @@ echo Cleaning previous builds...
 rmdir /s /q build 2>nul
 rmdir /s /q dist 2>nul
 
+REM Build PyInstaller command with conditional assets
+set PYINSTALLER_ARGS=--name "LeadGeneratorStandalone" --onefile --windowed
+set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --add-data "config.yaml;."
+set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --hidden-import=win32com.client
+set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --hidden-import=win32timezone
+set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --hidden-import=ttkbootstrap
+set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --hidden-import=PIL
+set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --hidden-import=pandas
+set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --hidden-import=matplotlib
+
+if exist "assets\icon.ico" (
+    set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --icon=assets/icon.ico
+) else (
+    echo Warning: assets\icon.ico not found, building without icon
+)
+
+if exist "assets" (
+    set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --add-data "assets;assets"
+) else (
+    echo Warning: assets directory not found, skipping asset bundling
+)
+
 REM Run PyInstaller
 echo Building executable...
-pyinstaller ^
-    --name "LeadGeneratorStandalone" ^
-    --onefile ^
-    --windowed ^
-    --icon=assets/icon.ico ^
-    --add-data "config.yaml;." ^
-    --add-data "assets;assets" ^
-    --hidden-import=win32com.client ^
-    --hidden-import=win32timezone ^
-    --hidden-import=ttkbootstrap ^
-    --hidden-import=PIL ^
-    --hidden-import=pandas ^
-    --hidden-import=matplotlib ^
-    main.py
+pyinstaller %PYINSTALLER_ARGS% main.py
 
 if errorlevel 1 (
     echo.
